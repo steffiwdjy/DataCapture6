@@ -173,7 +173,8 @@ async function createTables() {
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS users (
                 email VARCHAR(255) PRIMARY KEY,
-                password TEXT
+                password TEXT,
+                nib VARCHAR(13)
             )
         `);
         await conn.execute(`
@@ -274,7 +275,10 @@ app.post('/api/signup', async (req, res) => {
 
     const validEmail = isValidEmail(email);
     const validPassword = password.length >= 8;
-    const validNib = /^\d{13}$/.test(nib); // regex: hanya 13 digit angka
+
+    // nib
+    const nibStr = String(nib).trim();
+    const validNib = /^\d{13}$/.test(nibStr);
 
     if (!validEmail) {
         return res.json({ success: false, message: "Email tidak valid" });
@@ -297,6 +301,10 @@ app.post('/api/signup', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: "Server error" });
     }
+
+
+    console.log("Received NIB:", nib);
+
 });
 
 
