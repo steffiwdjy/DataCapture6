@@ -14,7 +14,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 7000;
 
 
 // Middleware
@@ -133,25 +133,53 @@ async function loadRentalsFromDb() {
 // Fungsi update waktu_checkout dan diedit_oleh di DB
 async function updateCheckoutTime(rentalId, waktuCheckout, user) {
     const conn = await getConnection();
+    const [rows] = await conn.execute(`SELECT waktu_checkout FROM rentals WHERE id=?`, [rentalId]);
+    const oldValue = rows.length > 0 ? rows[0].waktu_checkout : "";
+
     await conn.execute(`
         UPDATE rentals
         SET waktu_checkout=?, diedit_oleh=?
         WHERE id=?
     `, [waktuCheckout, user, rentalId]);
+
+    await logRentalChange(
+        rentalId,
+        'edited',
+        'waktu check-out',
+        oldValue,
+        waktuCheckout,
+        user
+    );
+
     await conn.end();
 }
 
 // Fungsi update komentar dan diedit_oleh di DB
 async function updateKomentar(rentalId, komentarList, user) {
     const conn = await getConnection();
+    const [rows] = await conn.execute(`SELECT komentar FROM rentals WHERE id=?`, [rentalId]);
+    const oldKomentar = rows.length > 0 ? rows[0].komentar : "";
+
     const komentarJson = JSON.stringify(komentarList);
+
     await conn.execute(`
         UPDATE rentals
         SET komentar=?, diedit_oleh=?
         WHERE id=?
     `, [komentarJson, user, rentalId]);
+
+    await logRentalChange(
+        rentalId,
+        'edited',
+        'komentar',
+        oldKomentar,
+        komentarJson,
+        user
+    );
+
     await conn.end();
 }
+
 
 // Utilities
 function hashPassword(password) {
@@ -197,6 +225,22 @@ async function createTables() {
                 diedit_oleh VARCHAR(255)
             )
         `);
+
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS rental_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                rental_id INT,
+                action VARCHAR(20),              -- 'added' or 'edited'
+                field_changed VARCHAR(50),       -- 'waktu_checkout', 'komentar', etc.
+                old_value TEXT,
+                new_value TEXT,
+                email VARCHAR(255),
+                time_stamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (rental_id) REFERENCES rentals(id),
+                FOREIGN KEY (email) REFERENCES users(email)
+            )
+        `);
+
         await conn.end();
     } catch (error) {
         console.error(`Database error: ${error}`);
@@ -218,20 +262,44 @@ async function getUserPassword(email) {
     return rows.length > 0 ? rows[0].password : null;
 }
 
-async function addRental(data) {
+async function logRentalChange(rentalId, action, field, oldVal, newVal, userEmail) {
     const conn = await getConnection();
     await conn.execute(`
-        INSERT INTO rentals 
-        (nama, tower, lantai, unit, status_kewarganegaraan, metode_pembayaran, metode_lain,
-         tanggal_checkin, waktu_checkin, tanggal_checkout, waktu_checkout, lama_menginap, komentar, email_agent)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO rental_logs (rental_id, action, field_changed, old_value, new_value, email)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `, [rentalId, action, field, oldVal, newVal, userEmail]);
+    await conn.end();
+}
+
+async function addRental(data) {
+    const conn = await getConnection();
+    const [result] = await conn.execute(`
+    INSERT INTO rentals 
+    (nama, tower, lantai, unit, status_kewarganegaraan, metode_pembayaran, metode_lain,
+     tanggal_checkin, waktu_checkin, tanggal_checkout, waktu_checkout, lama_menginap, komentar, email_agent)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
         data.nama, data.tower, data.lantai, data.unit, data.status_kewarganegaraan,
         data.metode_pembayaran, data.metode_lain, data.tanggal_checkin, data.waktu_checkin,
         data.tanggal_checkout, data.waktu_checkout, data.lama_menginap, data.komentar, data.email_agent
     ]);
+
+    const rentalId = result.insertId;
+
+    await logRentalChange(
+        rentalId,
+        'added',
+        'all_fields',
+        '',
+        'added new rental data',
+        data.email_agent
+    );
+
     await conn.end();
 }
+
+
+
 
 const pelanggaranList = [
     "Ditemukan alat suntik di tempat sampah",
@@ -241,6 +309,8 @@ const pelanggaranList = [
     "Penyalahgunaan alkohol/narkoba",
     "Kekerasan atau ancaman kepada penghuni lain",
     "Merokok di area terlarang",
+    "Tidak menjaga kebersihan unit",
+    "Terpantau adanya tamu yang keluar masuk pada malam hari",
     "Menyewakan kembali unit yang disewa",
     "Agen memberlakukan sistem transit",
     "Agen lalai terhadap pelanggaran penyewa"
@@ -337,11 +407,16 @@ app.post('/api/rental', async (req, res) => {
             komentar: "", email_agent: req.session.user
         };
         
+        //console.log("Data yang akan disimpan ke rentals:", data); // <== Tambahkan log ini
+        
+
         await addRental(data);
         res.json({ success: true, message: "Data penyewa berhasil disimpan!" });
     } catch (error) {
+        console.error("Error saat simpan rental:", error); // Tambahkan log ini
         res.status(500).json({ success: false, message: "Server error" });
     }
+
 });
 
 app.get('/api/rentals', async (req, res) => {
@@ -436,6 +511,47 @@ app.get('/api/download-csv', async (req, res) => {
     }
 });
 
+app.get('/api/logs/:rentalId', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const rentalId = req.params.rentalId;
+    const conn = await getConnection();
+    const [logs] = await conn.execute(`
+        SELECT action, field_changed, old_value, new_value, email, time_stamp
+        FROM rental_logs
+        WHERE rental_id = ?
+        ORDER BY time_stamp DESC
+    `, [rentalId]);
+    await conn.end();
+    res.json({ success: true, logs });
+});
+
+// Endpoint untuk mengambil semua log
+app.get('/api/all-logs', async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    try {
+        const conn = await getConnection();
+        const [logs] = await conn.execute(`
+            SELECT rental_id, action, field_changed, old_value, new_value, email, time_stamp
+            FROM rental_logs
+            ORDER BY time_stamp DESC
+        `);
+        await conn.end();
+
+        res.json({ success: true, logs });
+    } catch (error) {
+        console.error("Gagal ambil semua log:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+
+
 // Create public directory structure
 const publicDir = path.join(__dirname, 'public');
 if (!fs.existsSync(publicDir)) {
@@ -447,7 +563,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.resolve('./index.html'));
 });
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`Server running at http://localhost:${port}`);
 });
 

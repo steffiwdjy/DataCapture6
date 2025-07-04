@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rusunami The Jarrdin Baru</title>
+    <title>Rusunami The Jarrdin Cihampelas</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -495,11 +495,15 @@
                 <button class="btn-success" onclick="saveRental()">Simpan Data Penyewa</button>
             </div>
 
+            
             <div id="view-data-section" class="hidden">
                 <h2>Data Penyewa</h2>
                 <div class="two-column">
                     <div>
                         <button class="btn-success" onclick="downloadCSV()">📥 Download CSV</button>
+                    </div>
+                    <div>
+                        <button class="btn-success" onclick="downloadAllLogsCSV()">📥 Download Riwayat Perubahan</button>
                     </div>
                     <div>
                         <button onclick="refreshTable()">🔄 Refresh Tabel</button>
@@ -511,6 +515,16 @@
                 <h3>Input Waktu Check-out dan Komentar</h3>
                 <div id="rentals-expanders"></div>
             </div>
+
+
+            <!-- Pop Up Log History -->
+            <div id="historyModal" style="display:none; position:fixed; top:10%; left:10%; background:white; border:1px solid black; padding:20px; z-index:9999; width:80%; max-height:80%; overflow-y:auto;">
+                <h3>Riwayat Perubahan</h3>
+                <div id="historyContent"></div>
+                <button onclick="downloadHistoryCSV()">Download CSV</button>
+                <button onclick="document.getElementById('historyModal').style.display='none'">Tutup</button>
+            </div>
+
         </div>
 
         <div id="alert-container"></div>
@@ -810,10 +824,16 @@
                             <th>Komentar</th>
                             <th>Agen</th>
                             <th>Diedit Oleh</th>
+                            <th>Log History</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
+
+        
+            
+
+
 
             rentalsData.forEach(rental => {
                 const komentarStr = Array.isArray(rental.komentar) ? rental.komentar.join(', ') : '';
@@ -833,6 +853,9 @@
                         <td>${komentarStr}</td>
                         <td>${rental.email_agent || ''}</td>
                         <td>${rental.diedit_oleh || ''}</td>
+                        <td>
+                            <button onclick="showHistory(${rental.id})">Show History</button>
+                        </td>
                     </tr>
                 `;
             });
@@ -952,6 +975,152 @@
             loadRentalsData();
             showAlert('Tabel berhasil di-refresh', 'success');
         }
+
+
+
+        let lastHistoryLogs = []; // disimpan global agar bisa diakses saat export
+
+        async function showHistory(rentalId) {
+            try {
+                const response = await fetch(`/api/logs/${rentalId}`);
+                const result = await response.json();
+
+                if (result.success && result.logs.length > 0) {
+                    lastHistoryLogs = result.logs; // simpan agar bisa export
+
+                    let htmlContent = `<p><strong>🆔 Penyewa ID:</strong> ${rentalId}</p><hr>`;
+                    const formatTime = val => {
+                        if (!val || typeof val !== 'string') return '-';
+                        const match = val.match(/^(\d{2}:\d{2})/);
+                        return match ? match[1] : val;
+                    };
+
+                    result.logs.forEach(log => {
+                        const date = new Date(log.time_stamp);
+                        const timestamp = new Date(log.time_stamp).toLocaleString('id-ID', {
+                            timeZone: 'Asia/Jakarta',
+                            hour12: false
+                        }).replace(',', '');
+
+                        const oldVal = formatTime(log.old_value);
+                        const newVal = formatTime(log.new_value);
+
+                        htmlContent += `
+                            <div style="margin-bottom: 15px;">
+                                <p><strong>📅 ${timestamp}</strong></p>
+                                <p>👤 ${log.email} - <strong>${log.action.toUpperCase()}</strong></p>
+                                <p>📝 Kolom: ${log.field_changed}</p>
+                                <p>🔎 ${oldVal} → ${newVal}</p>
+                                <hr>
+                            </div>
+                        `;
+                    });
+
+                    document.getElementById('historyContent').innerHTML = htmlContent;
+                    document.getElementById('historyModal').style.display = 'block';
+                } else {
+                    document.getElementById('historyContent').innerHTML = `<p>Tidak ada riwayat perubahan.</p>`;
+                    document.getElementById('historyModal').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Gagal memuat riwayat log:', error);
+                alert('Gagal memuat log.');
+            }
+        }
+
+        function downloadHistoryCSV() {
+            if (!lastHistoryLogs || lastHistoryLogs.length === 0) {
+                alert("Belum ada log untuk diunduh.");
+                return;
+            }
+
+            const headers = ["Waktu", "Email", "Aksi", "Kolom", "Old Value", "New Value"];
+            let csv = headers.join(",") + "\n";
+
+            const formatTime = val => {
+                if (!val || typeof val !== 'string') return '-';
+                const match = val.match(/^(\d{2}:\d{2})/);
+                return match ? match[1] : val;
+            };
+
+            lastHistoryLogs.forEach(log => {
+                const date = new Date(log.time_stamp).toISOString().replace('T', ' ').substring(0, 19);
+                const row = [
+                    date,
+                    log.email,
+                    log.action,
+                    log.field_changed,
+                    formatTime(log.old_value),
+                    formatTime(log.new_value)
+                ].map(v => `"${v || ""}"`).join(",");
+                csv += row + "\n";
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "log_riwayat_penyewa.csv";
+            a.style.display = "none";
+
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+
+        async function downloadAllLogsCSV() {
+            try {
+                const response = await fetch('/api/all-logs');
+                const result = await response.json();
+
+                if (result.success && result.logs.length > 0) {
+                    const headers = ["Rental ID", "Waktu", "Email", "Aksi", "Kolom", "Old Value", "New Value"];
+                    let csv = headers.join(",") + "\n";
+
+                    const formatTime = val => {
+                        if (!val || typeof val !== 'string') return '-';
+                        const match = val.match(/^(\d{2}:\d{2})/);
+                        return match ? match[1] : val;
+                    };
+
+                    result.logs.forEach(log => {
+                        const timestamp = new Date(log.time_stamp).toISOString().replace('T', ' ').substring(0, 19);
+                        const row = [
+                            log.rental_id,
+                            timestamp,
+                            log.email,
+                            log.action,
+                            log.field_changed,
+                            formatTime(log.old_value),
+                            formatTime(log.new_value)
+                        ].map(v => `"${v || ""}"`).join(",");
+                        csv += row + "\n";
+                    });
+
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "semua_log_riwayat.csv";
+                    a.style.display = "none";
+
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    alert("Tidak ada log riwayat ditemukan.");
+                }
+            } catch (error) {
+                console.error("Gagal mengunduh semua log riwayat:", error);
+                alert("Gagal mengunduh log.");
+            }
+        }
+
+
+
 
         function showAlert(message, type) {
             const alertContainer = document.getElementById('alert-container');
