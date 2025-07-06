@@ -399,25 +399,74 @@ app.post('/api/rental', async (req, res) => {
         tanggal_checkout, lama_menginap
     } = req.body;
 
+    // Mapping nama field → label untuk pesan error
+    const fieldLabels = {
+        nama: "Nama Penyewa",
+        tower: "Tower",
+        lantai: "Lantai",
+        unit: "Nomor Unit",
+        status_kewarganegaraan: "Status Kewarganegaraan",
+        metode_pembayaran: "Metode Pembayaran",
+        tanggal_checkin: "Tanggal Check-In",
+        waktu_checkin: "Waktu Check-In",
+        tanggal_checkout: "Tanggal Check-Out",
+        lama_menginap: "Lama Menginap"
+    };
+
+    const requiredFields = {
+        nama, tower, lantai, unit, status_kewarganegaraan,
+        metode_pembayaran, tanggal_checkin, waktu_checkin,
+        tanggal_checkout, lama_menginap
+    };
+
+    for (const [key, value] of Object.entries(requiredFields)) {
+        if (value === undefined || value === null || String(value).trim() === "") {
+            return res.status(400).json({
+                success: false,
+                message: `Field ${fieldLabels[key] || key} tidak boleh kosong`
+            });
+        }
+    }
+
+    // Validasi kondisi khusus metode pembayaran
+    const resmiMetode = ["Kartu Kredit", "Cash", "Kartu Debit", "QRIS"];
+    const metodeLainTerisi = metode_lain && metode_lain.trim() !== "";
+
+    if (resmiMetode.includes(metode_pembayaran)) {
+        if (metodeLainTerisi) {
+            return res.status(400).json({
+                success: false,
+                message: `Metode lainnya harus dikosongkan jika memilih "${metode_pembayaran}"`
+            });
+        }
+    } else {
+        // Jika "Others", metode_lain wajib diisi
+        if (!metodeLainTerisi) {
+            return res.status(400).json({
+                success: false,
+                message: `Field Metode Lainnya wajib diisi.`
+            });
+        }
+    }
+
     try {
         const data = {
             nama, tower, lantai, unit, status_kewarganegaraan,
-            metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin,
+            metode_pembayaran, metode_lain: metode_lain || "", tanggal_checkin, waktu_checkin,
             tanggal_checkout, waktu_checkout: null, lama_menginap,
             komentar: "", email_agent: req.session.user
         };
-        
-        //console.log("Data yang akan disimpan ke rentals:", data); // <== Tambahkan log ini
-        
 
         await addRental(data);
         res.json({ success: true, message: "Data penyewa berhasil disimpan!" });
     } catch (error) {
-        console.error("Error saat simpan rental:", error); // Tambahkan log ini
+        console.error("Error saat simpan rental:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
-
 });
+
+
+
 
 app.get('/api/rentals', async (req, res) => {
     if (!req.session.user) {
