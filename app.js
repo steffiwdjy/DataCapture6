@@ -198,6 +198,7 @@ function isValidEmail(email) {
 async function createTables() {
     try {
         const conn = await getConnection();
+
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS users (
                 email VARCHAR(255) PRIMARY KEY,
@@ -205,6 +206,7 @@ async function createTables() {
                 nib VARCHAR(13)
             )
         `);
+
         await conn.execute(`
             CREATE TABLE IF NOT EXISTS rentals (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -213,6 +215,7 @@ async function createTables() {
                 lantai VARCHAR(10),
                 unit VARCHAR(10),
                 status_kewarganegaraan VARCHAR(10),
+                jenis_sewa ENUM('Harian', 'Mingguan', 'Bulanan'),
                 metode_pembayaran VARCHAR(50),
                 metode_lain VARCHAR(50),
                 tanggal_checkin DATE,
@@ -230,8 +233,8 @@ async function createTables() {
             CREATE TABLE IF NOT EXISTS rental_logs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 rental_id INT,
-                action VARCHAR(20),              -- 'added' or 'edited'
-                field_changed VARCHAR(50),       -- 'waktu_checkout', 'komentar', etc.
+                action VARCHAR(20),
+                field_changed VARCHAR(50),
                 old_value TEXT,
                 new_value TEXT,
                 email VARCHAR(255),
@@ -254,7 +257,6 @@ async function addUser(email, password, nib) {
     await conn.end();
 }
 
-
 async function getUserPassword(email) {
     const conn = await getConnection();
     const [rows] = await conn.execute("SELECT password FROM users WHERE email = ?", [email]);
@@ -274,14 +276,15 @@ async function logRentalChange(rentalId, action, field, oldVal, newVal, userEmai
 async function addRental(data) {
     const conn = await getConnection();
     const [result] = await conn.execute(`
-    INSERT INTO rentals 
-    (nama, tower, lantai, unit, status_kewarganegaraan, metode_pembayaran, metode_lain,
-     tanggal_checkin, waktu_checkin, tanggal_checkout, waktu_checkout, lama_menginap, komentar, email_agent)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO rentals 
+        (nama, tower, lantai, unit, status_kewarganegaraan, jenis_sewa, metode_pembayaran, metode_lain,
+         tanggal_checkin, waktu_checkin, tanggal_checkout, waktu_checkout, lama_menginap, komentar, email_agent)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
         data.nama, data.tower, data.lantai, data.unit, data.status_kewarganegaraan,
-        data.metode_pembayaran, data.metode_lain, data.tanggal_checkin, data.waktu_checkin,
-        data.tanggal_checkout, data.waktu_checkout, data.lama_menginap, data.komentar, data.email_agent
+        data.jenis_sewa, data.metode_pembayaran, data.metode_lain, data.tanggal_checkin,
+        data.waktu_checkin, data.tanggal_checkout, data.waktu_checkout,
+        data.lama_menginap, data.komentar, data.email_agent
     ]);
 
     const rentalId = result.insertId;
@@ -297,7 +300,6 @@ async function addRental(data) {
 
     await conn.end();
 }
-
 
 
 
@@ -396,10 +398,9 @@ app.post('/api/rental', async (req, res) => {
     const {
         nama, tower, lantai, unit, status_kewarganegaraan,
         metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin,
-        tanggal_checkout, lama_menginap
+        tanggal_checkout, lama_menginap, jenis_sewa, lama_sewa_bulan
     } = req.body;
 
-    // Mapping nama field → label untuk pesan error
     const fieldLabels = {
         nama: "Nama Penyewa",
         tower: "Tower",
@@ -410,14 +411,15 @@ app.post('/api/rental', async (req, res) => {
         tanggal_checkin: "Tanggal Check-In",
         waktu_checkin: "Waktu Check-In",
         tanggal_checkout: "Tanggal Check-Out",
-        lama_menginap: "Lama Menginap"
+        lama_menginap: "Lama Menginap",
+        jenis_sewa: "Jenis Sewa"
     };
 
     const requiredFields = {
         nama, tower, lantai, unit, status_kewarganegaraan,
-        metode_pembayaran, tanggal_checkin, waktu_checkin,
-        tanggal_checkout, lama_menginap
+        metode_pembayaran, tanggal_checkin, waktu_checkin
     };
+
 
     for (const [key, value] of Object.entries(requiredFields)) {
         if (value === undefined || value === null || String(value).trim() === "") {
@@ -428,7 +430,34 @@ app.post('/api/rental', async (req, res) => {
         }
     }
 
-    // Validasi kondisi khusus metode pembayaran
+    let finalTanggalCheckout = tanggal_checkout;
+    let finalLamaMenginap = lama_menginap;
+
+    if (jenis_sewa === "Bulanan") {
+        if (!lama_sewa_bulan || isNaN(lama_sewa_bulan) || lama_sewa_bulan <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Lama sewa (bulan) wajib diisi untuk sewa bulanan."
+            });
+        }
+
+        const startDate = new Date(tanggal_checkin);
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + parseInt(lama_sewa_bulan));
+        endDate.setDate(endDate.getDate() - 1); // hitung mundur 1 hari agar tidak tabrakan dengan tanggal mulai bulan berikutnya
+
+        finalTanggalCheckout = endDate.toISOString().split('T')[0];
+        const timeDiff = Math.abs(endDate - startDate);
+        finalLamaMenginap = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+    } else {
+        if (!tanggal_checkout || !lama_menginap) {
+            return res.status(400).json({
+                success: false,
+                message: "Tanggal check-out dan lama menginap wajib diisi untuk sewa harian/mingguan."
+            });
+        }
+    }
+
     const resmiMetode = ["Kartu Kredit", "Cash", "Kartu Debit", "QRIS"];
     const metodeLainTerisi = metode_lain && metode_lain.trim() !== "";
 
@@ -436,11 +465,10 @@ app.post('/api/rental', async (req, res) => {
         if (metodeLainTerisi) {
             return res.status(400).json({
                 success: false,
-                message: `Metode lainnya harus dikosongkan jika memilih "${metode_pembayaran}"`
+                message: `Metode lainnya harus dikosongkan jika memilih \"${metode_pembayaran}\"`
             });
         }
     } else {
-        // Jika "Others", metode_lain wajib diisi
         if (!metodeLainTerisi) {
             return res.status(400).json({
                 success: false,
@@ -451,11 +479,29 @@ app.post('/api/rental', async (req, res) => {
 
     try {
         const data = {
-            nama, tower, lantai, unit, status_kewarganegaraan,
-            metode_pembayaran, metode_lain: metode_lain || "", tanggal_checkin, waktu_checkin,
-            tanggal_checkout, waktu_checkout: null, lama_menginap,
-            komentar: "", email_agent: req.session.user
+            nama: nama || "",
+            tower: tower || "",
+            lantai: lantai || "",
+            unit: unit || "",
+            status_kewarganegaraan: status_kewarganegaraan || "",
+            jenis_sewa: jenis_sewa || "Harian", // fallback default
+            metode_pembayaran: metode_pembayaran || "",
+            metode_lain: metode_lain || "", // pastikan string
+            tanggal_checkin: tanggal_checkin || null,
+            waktu_checkin: waktu_checkin || null,
+            tanggal_checkout: finalTanggalCheckout || null,
+            waktu_checkout: null, // tetap null aman
+            lama_menginap: finalLamaMenginap || 0,
+            komentar: "", // default empty string
+            email_agent: req.session.user || ""
         };
+
+        for (const [key, value] of Object.entries(data)) {
+            if (value === undefined) {
+                console.error(`Field ${key} is undefined`);
+            }
+        }
+
 
         await addRental(data);
         res.json({ success: true, message: "Data penyewa berhasil disimpan!" });
@@ -466,10 +512,10 @@ app.post('/api/rental', async (req, res) => {
 });
 
 
-
-
 app.get('/api/rentals', async (req, res) => {
+    
     if (!req.session.user) {
+        console.log("User belum login");
         return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
@@ -477,9 +523,13 @@ app.get('/api/rentals', async (req, res) => {
         const dataList = await loadRentalsFromDb();
         res.json({ success: true, data: dataList });
     } catch (error) {
+        console.error("Gagal load data penyewa:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
+
+
+
 
 app.post('/api/update-checkout', async (req, res) => {
     if (!req.session.user) {
@@ -529,22 +579,21 @@ app.get('/api/download-csv', async (req, res) => {
     }
 
     try {
-        const dataList = await loadRentalsFromDb();
-        
-        // Convert to CSV format
+        const dataList = await loadRentalsFromDb(); // Tambahkan baris ini
+
         const headers = [
-            "Nama Penyewa", "Status Kewarganegaraan", "Tower", "Lantai", "Unit",
+            "Nama Penyewa", "Jenis Sewa", "Status Kewarganegaraan", "Tower", "Lantai", "Unit",
             "Metode Pembayaran", "Tanggal Check-In", "Waktu Check-In",
             "Tanggal Check-Out", "Waktu Check-Out", "Lama Menginap (hari)",
             "Komentar", "Agen", "Diedit Oleh"
         ];
 
         let csvContent = headers.join(',') + '\n';
-        
+
         dataList.forEach(row => {
             const komentarStr = Array.isArray(row.komentar) ? row.komentar.join(', ') : "";
             const csvRow = [
-                row.nama, row.status_kewarganegaraan, row.tower, row.lantai, row.unit,
+                row.nama, row.jenis_sewa || "", row.status_kewarganegaraan, row.tower, row.lantai, row.unit,
                 row.metode_pembayaran, row.tanggal_checkin, row.waktu_checkin,
                 row.tanggal_checkout, row.waktu_checkout, row.lama_menginap,
                 komentarStr, row.email_agent, row.diedit_oleh || ""
@@ -556,9 +605,11 @@ app.get('/api/download-csv', async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="data_penyewa.csv"');
         res.send(csvContent);
     } catch (error) {
+        console.error("Gagal download CSV:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 });
+
 
 app.get('/api/logs/:rentalId', async (req, res) => {
     if (!req.session.user) {

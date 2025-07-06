@@ -422,15 +422,9 @@
                     <button class="menu-item" id="menu-view" onclick="showViewData()">📊 Lihat/Edit Data Penyewa</button>
                 </div>
 
-                <!-- <div id="user-info">Login sebagai: <span id="user-email">example@email.com</span></div>
-                <h3 class="menu-title">MENU</h3>
-
-                <button class="menu-item active" id="menu-input" onclick="showInputForm()">📋 Input Data Penyewa</button>
-                <button class="menu-item" id="menu-view" onclick="showViewData()">📊 Lihat/Edit Data Penyewa</button> -->
+                
                 <button class="btn-danger" onclick="logout()">Logout</button>
             </div>
-
-
 
 
 
@@ -466,6 +460,14 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>Jenis Sewa</label>
+                    <select id="jenis_sewa" onchange="toggleJenisSewa()">
+                        <option value="Harian">Harian</option>
+                        <option value="Mingguan">Mingguan</option>
+                        <option value="Bulanan">Bulanan</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Metode Pembayaran</label>
                     <select id="metode_pembayaran" onchange="toggleMetodeLain()">
                         <option value="Cash">Cash</option>
@@ -487,14 +489,18 @@
                     <label>Waktu Check-In</label>
                     <input type="time" id="waktu_checkin">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="checkout-group">
                     <label>Tanggal Check-Out</label>
                     <input type="date" id="tanggal_checkout">
                 </div>
+                <div class="form-group hidden" id="lama-sewa-group">
+                    <label>Lama Sewa (bulan)</label>
+                    <input type="number" id="lama_sewa" min="1" onchange="updateCheckoutForBulanan()">
+                </div>
+
                 <div id="lama-menginap-info"></div>
                 <button class="btn-success" onclick="saveRental()">Simpan Data Penyewa</button>
             </div>
-
             
             <div id="view-data-section" class="hidden">
                 <h2>Data Penyewa</h2>
@@ -757,7 +763,9 @@
                 tanggal_checkin: document.getElementById('tanggal_checkin').value,
                 waktu_checkin: document.getElementById('waktu_checkin').value,
                 tanggal_checkout: document.getElementById('tanggal_checkout').value,
-                lama_menginap: lamaMenginap
+                lama_menginap: lamaMenginap,
+                jenis_sewa: document.getElementById('jenis_sewa').value,
+                lama_sewa_bulan: document.getElementById('lama_sewa').value
             };
 
             try {
@@ -770,11 +778,11 @@
                 const result = await response.json();
                 if (result.success) {
                     showAlert(result.message, 'success');
-                    // Reset form
                     document.getElementById('nama').value = '';
                     document.getElementById('lantai').value = '';
                     document.getElementById('unit').value = '';
                     document.getElementById('metode_lain').value = '';
+                    document.getElementById('lama_sewa').value = '';
                     initializeCurrentDateTime();
                 } else {
                     showAlert(result.message, 'danger');
@@ -784,85 +792,33 @@
             }
         }
 
+
+
         async function loadRentalsData() {
             try {
-                const response = await fetch('/api/rentals');
+                const response = await fetch('/api/rentals', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
                 const result = await response.json();
+                console.log("Hasil dari /api/rentals:", result); // Tambahan debug
+
                 if (result.success) {
                     rentalsData = result.data;
                     displayRentalsTable();
                     displayRentalsExpanders();
+                } else {
+                    showAlert('Gagal mengambil data: ' + result.message, 'danger');
                 }
             } catch (error) {
-                showAlert('Error loading rentals data', 'danger');
+                console.error("Fetch error:", error);
+                showAlert('Error loading rentals data (fetch failed)', 'danger');
             }
         }
 
-        function displayRentalsTable() {
-            const tableContainer = document.getElementById('rentals-table');
-            
-            if (rentalsData.length === 0) {
-                tableContainer.innerHTML = '<div class="alert alert-info">Belum ada data.</div>';
-                return;
-            }
-
-            let tableHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Nama Penyewa</th>
-                            <th>Status Kewarganegaraan</th>
-                            <th>Tower</th>
-                            <th>Lantai</th>
-                            <th>Unit</th>
-                            <th>Metode Pembayaran</th>
-                            <th>Tanggal Check-In</th>
-                            <th>Waktu Check-In</th>
-                            <th>Tanggal Check-Out</th>
-                            <th>Waktu Check-Out</th>
-                            <th>Lama Menginap (hari)</th>
-                            <th>Komentar</th>
-                            <th>Agen</th>
-                            <th>Diedit Oleh</th>
-                            <th>Log History</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
 
         
-            
-
-
-
-            rentalsData.forEach(rental => {
-                const komentarStr = Array.isArray(rental.komentar) ? rental.komentar.join(', ') : '';
-                tableHTML += `
-                    <tr>
-                        <td>${rental.nama || ''}</td>
-                        <td>${rental.status_kewarganegaraan || ''}</td>
-                        <td>${rental.tower || ''}</td>
-                        <td>${rental.lantai || ''}</td>
-                        <td>${rental.unit || ''}</td>
-                        <td>${rental.metode_pembayaran || ''}</td>
-                        <td>${rental.tanggal_checkin || ''}</td>
-                        <td>${rental.waktu_checkin || ''}</td>
-                        <td>${rental.tanggal_checkout || ''}</td>
-                        <td>${rental.waktu_checkout || ''}</td>
-                        <td>${rental.lama_menginap || ''}</td>
-                        <td>${komentarStr}</td>
-                        <td>${rental.email_agent || ''}</td>
-                        <td>${rental.diedit_oleh || ''}</td>
-                        <td>
-                            <button onclick="showHistory(${rental.id})">Show History</button>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            tableHTML += '</tbody></table>';
-            tableContainer.innerHTML = tableHTML;
-        }
 
         function displayRentalsExpanders() {
             const expandersContainer = document.getElementById('rentals-expanders');
@@ -899,6 +855,71 @@
 
             expandersContainer.innerHTML = expandersHTML;
         }
+
+        function displayRentalsTable() {
+            const tableContainer = document.getElementById('rentals-table');
+
+            if (rentalsData.length === 0) {
+                tableContainer.innerHTML = '<div class="alert alert-info">Belum ada data.</div>';
+                return;
+            }
+
+            let tableHTML = `
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nama Penyewa</th>
+                            <th>Jenis Sewa</th> <!-- Dipindahkan ke sini -->
+                            <th>Status Kewarganegaraan</th>
+                            <th>Tower</th>
+                            <th>Lantai</th>
+                            <th>Unit</th>
+                            <th>Metode Pembayaran</th>
+                            <th>Tanggal Check-In</th>
+                            <th>Waktu Check-In</th>
+                            <th>Tanggal Check-Out</th>
+                            <th>Waktu Check-Out</th>
+                            <th>Lama Menginap (hari)</th>
+                            <th>Komentar</th>
+                            <th>Agen</th>
+                            <th>Diedit Oleh</th>
+                            <th>Log History</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            rentalsData.forEach(rental => {
+                const komentarStr = Array.isArray(rental.komentar) ? rental.komentar.join(', ') : '';
+                tableHTML += `
+                    <tr>
+                        <td>${rental.nama || ''}</td>
+                        <td>${rental.jenis_sewa || ''}</td> <!-- Dipindahkan ke sini -->
+                        <td>${rental.status_kewarganegaraan || ''}</td>
+                        <td>${rental.tower || ''}</td>
+                        <td>${rental.lantai || ''}</td>
+                        <td>${rental.unit || ''}</td>
+                        <td>${rental.metode_pembayaran || ''}</td>
+                        <td>${rental.tanggal_checkin || ''}</td>
+                        <td>${rental.waktu_checkin || ''}</td>
+                        <td>${rental.tanggal_checkout || ''}</td>
+                        <td>${rental.waktu_checkout || ''}</td>
+                        <td>${rental.lama_menginap || ''}</td>
+                        <td>${komentarStr}</td>
+                        <td>${rental.email_agent || ''}</td>
+                        <td>${rental.diedit_oleh || ''}</td>
+                        <td>
+                            <button onclick="showHistory(${rental.id})">Show History</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += '</tbody></table>';
+            tableContainer.innerHTML = tableHTML;
+        }
+
+
 
         function toggleExpander(index) {
             const content = document.getElementById(`expander-${index}`);
@@ -1118,6 +1139,54 @@
                 alert("Gagal mengunduh log.");
             }
         }
+
+
+
+        //sewa bulanan
+        function toggleJenisSewa() {
+            const jenis = document.getElementById('jenis_sewa').value;
+            const lamaSewaGroup = document.getElementById('lama-sewa-group');
+            const checkoutGroup = document.getElementById('checkout-group');
+
+            if (jenis === 'Bulanan') {
+                lamaSewaGroup.classList.remove('hidden');
+                checkoutGroup.classList.remove('hidden'); // tetap tampil
+                updateCheckoutForBulanan();
+            } else {
+                lamaSewaGroup.classList.add('hidden');
+                checkoutGroup.classList.remove('hidden');
+            }
+        }
+
+
+        function updateCheckoutForBulanan() {
+            const checkin = document.getElementById('tanggal_checkin').value;
+            const lama = parseInt(document.getElementById('lama_sewa').value);
+
+            if (checkin && lama > 0) {
+                const checkinDate = new Date(checkin);
+                const originalDay = checkinDate.getDate();
+                const originalMonth = checkinDate.getMonth();
+
+                checkinDate.setMonth(originalMonth + lama);
+
+                // Jika hari setelah update melompat bulan, set ke akhir bulan sebelumnya
+                if (checkinDate.getDate() < originalDay) {
+                    checkinDate.setDate(0); // tanggal 0 akan ke akhir bulan sebelumnya
+                }
+
+                const year = checkinDate.getFullYear();
+                const month = String(checkinDate.getMonth() + 1).padStart(2, '0');
+                const day = String(checkinDate.getDate()).padStart(2, '0');
+
+                const newCheckoutDate = `${year}-${month}-${day}`;
+                document.getElementById('tanggal_checkout').value = newCheckoutDate;
+
+                // Hitung ulang lama menginap (dalam hari)
+                calculateLamaMenginap();
+            }
+        }
+
 
 
 
