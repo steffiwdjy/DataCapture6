@@ -4,360 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rusunami The Jarrdin Cihampelas</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5
-        }
-
-        /* Sidebar styling */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 300px;
-            height: 100vh;
-            background-color: #323131 !important; /* Paksa jadi hitam */
-            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-            transition: transform 0.3s ease;
-            z-index: 1000;
-            color: white;
+        
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 300px; height: 100vh; background-color: #323131 !important; box-shadow: 2px 0 5px rgba(0,0,0,0.1); padding: 20px; box-sizing: border-box; overflow-y: auto; transition: transform 0.3s ease; z-index: 1000; color: white; }
+        .sidebar.hide { transform: translateX(-100%); }
+        .toggle-btn { position: fixed; top: 10px; left: 10px; background-color: #ffc107; border: none; padding: 8px 12px; cursor: pointer; font-size: 20px; z-index: 1100; border-radius: 4px; }
+        #user-info { font-weight: bold; margin-top: 75px; margin-bottom: 20px; color: #ffffff; font-size: 14px; }
+        .menu-item { display: block; width: 100%; padding: 12px; margin-bottom: 10px; border: 2px solid transparent; background-color: #000000; color: white; cursor: pointer; font-size: 16px; border-radius: 4px; text-align: left; transition: border-color 0.3s ease; }
+        .menu-item:hover { border-color: #ffa500; background-color: #000; }
+        .menu-item.active { background-color: #005a09; font-weight: bold; color: white; }
+        .btn-danger { display: block; width: 100%; padding: 12px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 20px; font-size: 16px; }
+        .main-content { margin-left: 300px; padding: 20px; transition: margin-left 0.3s ease; }
+        .sidebar.hide ~ .main-content { margin-left: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { display: flex; align-items: center; gap: 16px; margin-bottom: 30px; border-bottom: 3px solid #000000; padding-bottom: 20px; text-align: center; }
+        .logo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; }
+        .title { margin: 0; color: #008000; text-shadow: 0.5px 0.5px 0px white; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background-color: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #0056b3; }
+        .btn-danger { background-color: #dc3545; } .btn-danger:hover { background-color: #c82333; }
+        .btn-success { background-color: #28a745; } .btn-success:hover { background-color: #218838; }
+        .alert { padding: 15px; margin-bottom: 20px; border: 1px solid transparent; border-radius: 4px; }
+        .alert-success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+        .alert-danger { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+        .alert-info { color: #0c5460; background-color: #d1ecf1; border-color: #bee5eb; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        .table th, .table td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+            white-space: nowrap; /* This prevents text from wrapping to the next line */
+            vertical-align: middle; /* This vertically aligns content in the middle */
         }
         
-
-        /* Sidebar hidden */
-        .sidebar.hide {
-            transform: translateX(-100%);
-        }
-
-        /* Toggle button sekarang ada di dalam sidebar, pojok kanan atas */
-        .toggle-btn {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: #ffc107;
-            border: none;
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 20px;
-            z-index: 1100; /* Pastikan di atas elemen lain */
-            border-radius: 4px;
-        }
-
-
-        /* Email user login, diberi margin-top 75px (± 2 cm dari tombol toggle) */
-        #user-info {
-            font-weight: bold;
-            margin-top: 75px;
-            margin-bottom: 20px;
-            color: #ffffff;
-            font-size: 14px;
-        }
-
-        /* Tombol menu */
-        .menu-item {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            border: 2px solid transparent;
-            background-color: #000000;
-            color: white;
-            cursor: pointer;
-            font-size: 16px;
-            border-radius: 4px;
-            text-align: left;
-            transition: border-color 0.3s ease;
-        }
-
-        .menu-item:hover {
-            border-color: #ffa500;
-            background-color: #000;
-        }
-
-        .menu-item.active {
-            background-color: #005a09; 
-            font-weight: bold;
-            color: white;
-        }
-
-        /* Tombol logout */
-        .btn-danger {
-            display: block;
-            width: 100%;
-            padding: 12px;
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 20px;
-            font-size: 16px;
-        }
-
-        /* Konten utama */
-        .main-content {
-            margin-left: 300px;
-            padding: 20px;
-            transition: margin-left 0.3s ease;
-        }
-
-        .sidebar.hide ~ .main-content {
-            margin-left: 60px; /* agar tidak mentok ke kiri saat sidebar sembunyi */
-        }
-
-
-        /* Saat sidebar di-hide, hanya tombol toggle yang terlihat */
-        .sidebar.hide > *:not(.toggle-btn) {
-            display: none;
-        }
-
-        /* Tambahan (opsional): toggle tetap muncul di kiri atas halaman meskipun sidebar tersembunyi */
-        .sidebar.hide .toggle-btn {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            z-index: 1100;
-        }
-
-        /* Saat sidebar tampil, tombol toggle di dalam sidebar */
-        .sidebar .toggle-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-        }
-
-        /* Saat sidebar disembunyikan, pindahkan tombol toggle ke kiri atas halaman */
-        .sidebar.hide .toggle-btn {
-            position: fixed;
-            top: 10px;
-            left: 310px;
-            z-index: 1100; 
-        }
-
-
-
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #000000; 
-            padding-bottom: 20px;
-            text-align: center;
-        }
-        .logo {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-        .title {
-            margin: 0;
-            color: #008000;
-            text-shadow: 0.5px 0.5px 0px white;
-            /* border-bottom: 3px solid #006400; Garis tebal di bawah judul */
-            /* padding-bottom: 20px; */
-        }
-        .sidebar {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #007bff;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        .btn-danger {
-            background-color: #dc3545;
-        }
-        .btn-danger:hover {
-            background-color: #c82333;
-        }
-        .btn-success {
-            background-color: #28a745;
-        }
-        .btn-success:hover {
-            background-color: #218838;
-        }
-        .alert {
-            padding: 15px;
-            margin-bottom: 20px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-        }
-        .alert-success {
-            color: #155724;
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-        }
-        .alert-danger {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-        }
-        .alert-info {
-            color: #0c5460;
-            background-color: #d1ecf1;
-            border-color: #bee5eb;
-        }
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        .table th, .table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .table th {
-            background-color: #f2f2f2;
-        }
-        .expander {
-            border: 1px solid #ddd;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-        .expander-header {
-            background-color: #f8f9fa;
-            padding: 10px;
-            cursor: pointer;
-            border-bottom: 1px solid #ddd;
-        }
-        .expander-content {
-            padding: 15px;
-            display: none;
-        }
-        .expander-content.active {
-            display: block;
-        }
-        .checkbox-group {
-            margin: 10px 0;
-        }
-        .checkbox-group label {
-            font-weight: normal;
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-            margin-right: 8px;
-        }
-        .hidden {
-            display: none;
-        }
-        .menu-item {
-            display: block;
-            width: 100%;
-            text-align: left;
-            margin-bottom: 5px;
-        }
-        
-
-        .two-column {
-            display: flex;
-            gap: 20px;
-        }
-        .two-column > div:first-child {
-            flex: 3.6;
-        }
-        .two-column > div:last-child {
-            flex: 1;
-        }
-
-
-        /* table */
-        #rentals-table table {
-            width: 100%; /* Memastikan tabel mengikuti lebar container */
-            border-collapse: collapse;
-            font-size: 0.9rem; /* Font sedikit lebih kecil untuk compact */
-        }
-
-        #rentals-table th, #rentals-table td {
-            padding: 6px 8px; /* Padding kecil untuk compact */
-            border: 1px solid #ddd;
-            white-space: nowrap; /* Membuat teks tidak membungkus baris, agar rapi */
-            text-align: left;
-            max-width: 150px; /* Membatasi maksimal lebar kolom */
-            overflow: hidden;
-            text-overflow: ellipsis; /* Jika teks terlalu panjang, tampilkan ... */
-        }
-
-        #rentals-table thead {
-            background-color: #f8f9fa;
-        }
-
-        #rentals-table tbody tr:hover {
-            background-color: #f1f1f1;
-        }
-
-        /* Container untuk scroll horizontal jika tabel tetap terlalu lebar */
-        #rentals-table {
-            overflow-x: auto;
-        }
-
-        /* judul menu */
-        .menu-title {
-            margin-top: 20px;
-            margin-bottom: 15px;
-            font-size: 20px;
-            font-weight: bold;
-            color: white;
-            border-bottom: 1px solid #ccc;
-            padding-bottom: 5px;
-            padding-left: 20px;
-        }
-
-        .menu-box {
-            background-color: #000; /* Hitam */
-            padding: 10px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            padding-right: 20px;
-        }
-
-
-
+        .table th { background-color: #f2f2f2; }
+        .hidden { display: none; }
+        .menu-title { margin-top: 20px; margin-bottom: 15px; font-size: 20px; font-weight: bold; color: white; border-bottom: 1px solid #ccc; padding-bottom: 5px; padding-left: 20px; }
+        .menu-box { background-color: #000; padding: 10px; border-radius: 12px; margin-bottom: 20px; padding-right: 20px; }
+        .admin-only { display: none; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
+        .dashboard-card { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; }
     </style>
 </head>
 <body>
@@ -367,198 +58,197 @@
             <h1 class="title">Rusunami The Jarrdin Cihampelas</h1>
         </div>
 
-        
-
         <div id="auth-section">
-            <!-- Login Page -->
             <div id="login-page">
-                <h2>🔐 Login Agen</h2>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="login-email">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="login-password">
-                </div>
+                <h2>🔐 Login</h2>
+                <div class="form-group"><label>Email</label><input type="email" id="login-email"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="login-password"></div>
                 <button onclick="login()">Login</button>
                 <p>Belum punya akun? <a href="#" onclick="showSignup()">Daftar di sini</a></p>
             </div>
-
-            <!-- Signup Page -->
             <div id="signup-page" class="hidden">
                 <h2>📝 Daftar Agen Baru</h2>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="signup-email">
-                </div>
-                <div class="form-group">
-                    <label for="nib">NIB</label>
-                    <input type="text" id="nib" name="nib" required minlength="13" maxlength="13" pattern="\d{13}">
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" id="signup-password">
-                </div>
-
+                <div class="form-group"><label>Email</label><input type="email" id="signup-email"></div>
+                <div class="form-group"><label for="nib">NIB</label><input type="text" id="nib" required minlength="13" maxlength="13" pattern="\d{13}"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="signup-password"></div>
                 <button onclick="signup()">Daftar</button>
                 <p>Sudah punya akun? <a href="#" onclick="showLogin()">Login di sini</a></p>
             </div>
         </div>
 
-
         <div id="main-section" class="hidden">
-            <button id="toggle-sidebar" class="toggle-btn">☰</button> <!-- Pindah ke dalam sidebar -->
-                
-            
-
+            <button id="toggle-sidebar" class="toggle-btn">☰</button>
             <div class="sidebar" id="sidebar">
-                <div id="user-info">Login sebagai: <span id="user-email">example@email.com</span></div>
-
+                <div id="user-info"></div>
                 <div class="menu-box">
                     <h3 class="menu-title">MENU</h3>
-
-                    <button class="menu-item active" id="menu-input" onclick="showInputForm()">📋 Input Data Penyewa</button>
-                    <button class="menu-item" id="menu-view" onclick="showViewData()">📊 Lihat/Edit Data Penyewa</button>
+                    <button class="menu-item" id="menu-dashboard" onclick="showPage('dashboard-section')">📈 Dashboard</button>
+                    <button class="menu-item" id="menu-input" onclick="showPage('input-form-section')">📋 Input Data Penyewa</button>
+                    <button class="menu-item" id="menu-view" onclick="showPage('view-data-section')">📊 Lihat/Edit Data</button>
+                    <button class="menu-item admin-only" id="menu-units" onclick="showPage('unit-management-section')">🏢 Manajemen Unit</button>
                 </div>
-
-                
                 <button class="btn-danger" onclick="logout()">Logout</button>
             </div>
 
+            <div class="main-content">
+                <div id="input-form-section" class="page-content hidden">
+                    <h2>📋 Form Input Data Penyewa</h2>
+                    <form id="rental-input-form">
+                        <div class="form-group"><label>Nama Penyewa</label><input type="text" id="nama" required></div>
+                        <div class="form-group"><label>NIK</label><input type="text" id="nik_input" pattern="\d{16}" title="NIK harus 16 digit angka" required></div>
+                        <div class="form-group"><label>Status Pasutri</label>
+                            <select id="status_pasutri_input"><option value="Bukan">Bukan</option><option value="Ya">Ya</option></select>
+                        </div>
+                        <div class="form-group"><label>Pilih Unit</label><select id="unit-select" onchange="populateUnitFields()" required><option value="">Memuat unit...</option></select></div>
+                        <div class="form-group hidden"><label>Tower</label><input type="text" id="tower" readonly></div>
+                        <div class="form-group hidden"><label>Lantai</label><input type="text" id="lantai" readonly></div>
+                        <div class="form-group hidden"><label>Nomor Unit</label><input type="text" id="unit" readonly></div>
 
 
-            <div id="input-form-section">
-                <h2>📋 Form Input Data Penyewa</h2>
-                <br>
-                <div class="form-group">
-                    <label>Nama Penyewa</label>
-                    <input type="text" id="nama">
-                </div>
-                <div class="form-group">
-                    <label>Tower</label>
-                    <select id="tower">
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Lantai</label>
-                    <input type="text" id="lantai">
-                </div>
-                <div class="form-group">
-                    <label>Nomor Unit</label>
-                    <input type="text" id="unit">
-                </div>
-                <div class="form-group">
-                    <label>Kewarganegaraan</label>
-                    <select id="status_kewarganegaraan">
-                        <option value="WNI">WNI</option>
-                        <option value="WNA">WNA</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Jenis Sewa</label>
-                    <select id="jenis_sewa" onchange="toggleJenisSewa()">
-                        <option value="Harian">Harian</option>
-                        <option value="Mingguan">Mingguan</option>
-                        <option value="Bulanan">Bulanan</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Metode Pembayaran</label>
-                    <select id="metode_pembayaran" onchange="toggleMetodeLain()">
-                        <option value="Cash">Cash</option>
-                        <option value="Kartu Kredit">Kartu Kredit</option>
-                        <option value="Kartu Debit">Kartu Debit</option>
-                        <option value="QRIS">QRIS</option>
-                        <option value="Others">Others</option>
-                    </select>
-                </div>
-                <div class="form-group hidden" id="metode-lain-group">
-                    <label>Metode Lainnya</label>
-                    <input type="text" id="metode_lain">
-                </div>
-                <div class="form-group">
-                    <label>Tanggal Check-In</label>
-                    <input type="date" id="tanggal_checkin">
-                </div>
-                <div class="form-group">
-                    <label>Waktu Check-In</label>
-                    <input type="time" id="waktu_checkin">
-                </div>
-                <div class="form-group" id="checkout-group">
-                    <label>Tanggal Check-Out</label>
-                    <input type="date" id="tanggal_checkout">
-                </div>
-                <div class="form-group hidden" id="lama-sewa-group">
-                    <label>Lama Sewa (bulan)</label>
-                    <input type="number" id="lama_sewa" min="1" onchange="updateCheckoutForBulanan()">
+
+                        <div class="form-group"><label>Kewarganegaraan</label><select id="status_kewarganegaraan"><option>WNI</option><option>WNA</option></select></div>
+                        <div class="form-group"><label>Jenis Sewa</label><select id="jenis_sewa" onchange="handleJenisSewaChange()"><option>Harian</option><option>Mingguan</option><option>Bulanan</option></select></div>
+                        <div class="form-group hidden" id="bulanan-options"><label for="jumlah_bulan">Jumlah Bulan</label><input type="number" id="jumlah_bulan" min="1" value="1" oninput="calculateCheckoutAndDuration()"></div>
+                        <div class="form-group"><label>Metode Pembayaran</label><select id="metode_pembayaran" onchange="toggleMetodeLain()"><option>Cash</option><option>Kartu Kredit</option><option>Kartu Debit</option><option>QRIS</option><option value="Others">Others</option></select></div>
+                        <div class="form-group hidden" id="metode-lain-group"><label>Metode Lainnya</label><input type="text" id="metode_lain"></div>
+                        <div class="form-group"><label>Tanggal Check-In</label><input type="date" id="tanggal_checkin" onchange="calculateCheckoutAndDuration()" required></div>
+                        <div class="form-group"><label>Waktu Check-In</label><input type="time" id="waktu_checkin" required></div>
+                        <div class="form-group"><label>Tanggal Check-Out</label><input type="date" id="tanggal_checkout" onchange="calculateCheckoutAndDuration()" required></div>
+                        <div class="alert alert-info" id="lama-menginap-info">Lama Menginap: 1 Hari</div>
+                        <button type="button" class="btn-success" onclick="saveRental()">Simpan Data</button>
+                    </form>
                 </div>
 
-                <div id="lama-menginap-info"></div>
-                <button class="btn-success" onclick="saveRental()">Simpan Data Penyewa</button>
-            </div>
-            
-            <div id="view-data-section" class="hidden">
-                <h2>Data Penyewa</h2>
-                <div class="two-column">
-                    <div>
-                        <button class="btn-success" onclick="downloadCSV()">📥 Download CSV</button>
+                <div id="view-data-section" class="page-content hidden">
+                    <h2>📊 Data Penyewa</h2>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-success" onclick="downloadRentalsCSV()" style="flex: 1; margin: 0;">📥 Download Data Penyewa</button>
+                            <button class="btn-success" onclick="downloadAllLogsCSV()" style="flex: 1; margin: 0;">📜 Download Semua Log</button>
+                            <button class="admin-only" onclick="checkDuplicates()" style="flex: 1; margin: 0;">🔍 Cek Data Duplikat</button>
+                            <button onclick="loadRentalsData(true)" style="flex: 1; margin: 0;">🔄 Refresh Tabel</button>
+                        </div>
+                        <div class="admin-only" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="comment-filter" onchange="loadRentalsData()" style="width: auto; margin: 0;">
+                            
+                            <label for="comment-filter" style="margin: 0; font-weight: normal; white-space: nowrap;">Tampilkan yg data dengan pelanggaran saja</label>
+                            </div>
                     </div>
-                    <div>
-                        <button class="btn-success" onclick="downloadAllLogsCSV()">📥 Download Riwayat Perubahan</button>
-                    </div>
-                    <div>
-                        <button onclick="refreshTable()">🔄 Refresh Tabel</button>
+                    <div id="rentals-table" style="overflow-x: auto;"></div>
+                    <hr>
+                    <h3>📝 Edit Data Penyewa</h3>
+                    <div id="rentals-expanders"></div>
+                </div>
+
+                <div id="dashboard-section" class="page-content">
+                    <h2>📈 Dashboard</h2>
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            
+                            <h3 style="text-decoration: underline;">Statistik Penyewaan Unit</h3>
+                            <div style="margin-bottom: 10px;">
+                                <label for="stats-filter">Filter Periode:</label>
+                                <select id="stats-filter" onchange="loadDashboardStats()">
+                                    <option value="all">Semua Waktu</option>
+                                    <option value="monthly">Bulanan</option>
+                                    <option value="weekly">Mingguan</option>
+                                </select>
+                            </div>
+                            
+                            <h4 style="text-align: center; font-weight: normal;">Jumlah Unit Disewakan per Periode</h4>
+                            <canvas id="rentedUnitsChart"></canvas>
+                            
+                            <hr style="margin: 20px 0;">
+                            
+                            <h4 style="text-align: center; font-weight: normal;">Top 5 Unit Paling Populer</h4>
+                            <canvas id="topUnitsChart"></canvas>
+                            
+                            <div id="admin-stats-container" class="admin-only" style="margin-top: 20px; display: none;">
+                                <hr>
+
+                                <h3 style="text-decoration: underline;">Statistik Detail Setiap Agen</h3>
+                                <h4 style="text-align: center; font-weight: normal;">Jumlah Unit Disewakan (per Agen)</h4>
+                                <canvas id="rentedUnitsByAgentChart"></canvas>
+                                
+                                <hr style="margin: 20px 0;">
+                                
+                                </div>
+                        </div>
+                        <div class="dashboard-card">
+
+                            <h3 style="text-decoration: underline;">Laporan Pelanggaran</h3>
+                            <div id="violations-container" style="max-height: 400px; overflow-y: auto;"></div>
+                            <hr>
+                            <div class="admin-only">
+                                <h3 style="text-decoration: underline;">Upload Laporan Baru</h3>
+                                <div class="form-group"><label>Pilih Penyewa</label><select id="violation-rental-id"></select></div>
+                                <div class="form-group"><label>Upload Foto</label><input type="file" id="violation-photo-file" accept="image/*"></div>
+                                <div class="form-group"><label>Deskripsi</label><input type="text" id="violation-desc"></div>
+                                <button class="btn-success" onclick="submitViolation()">Upload Laporan</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div id="rentals-table"></div>
-                <br>
-                <hr>
-                <h3>Input Waktu Check-out dan Komentar</h3>
-                <div id="rentals-expanders"></div>
+                
+                <div id="unit-management-section" class="page-content hidden">
+                    <h2>🏢 Manajemen Unit Agen</h2>
+                    <div class="form-group">
+                        <label>Pilih Agen</label>
+                        <select id="manage-agent-select" onchange="loadUnitsForAgent()"></select>
+                    </div>
+                    <div id="unit-list-container"></div>
+                    <hr>
+                    
+                    <h3>Tambah Unit Baru</h3>
+                    <div class="form-group">
+                        <label>Tower</label>
+                        <select id="new-unit-tower">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lantai</label>
+                        <input type="text" id="new-unit-lantai">
+                    </div>
+                    <div class="form-group">
+                        <label>Nomor</label>
+                        <input type="text" id="new-unit-nomor">
+                    </div>
+                    <button class="btn-success" onclick="addUnit()" style="width: 100%; margin: 10px 0 0 0;">Tambah Unit</button>
+                    </div>
             </div>
-
-
-            <!-- Pop Up Log History -->
-            <div id="historyModal" style="display:none; position:fixed; top:10%; left:10%; background:white; border:1px solid black; padding:20px; z-index:9999; width:80%; max-height:80%; overflow-y:auto;">
-                <h3>Riwayat Perubahan</h3>
-                <div id="historyContent"></div>
-                <button onclick="downloadHistoryCSV()">Download CSV</button>
-                <button onclick="document.getElementById('historyModal').style.display='none'">Tutup</button>
-            </div>
-
         </div>
+    </div>
 
-        <div id="alert-container"></div>
+    <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+    <div id="log-modal" style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
+        <div style="background-color:#fefefe; margin:10% auto; padding:20px; border:1px solid #888; width:80%; max-width:900px; border-radius: 8px;">
+            <span style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;" onclick="closeLogModal()">&times;</span>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 id="log-modal-title">Riwayat Perubahan</h2>
+                <button class="btn-success" id="download-log-tenant-csv" onclick="">📥 Download Log Ini (CSV)</button>
+            </div>
+            <div id="log-modal-body" style="max-height: 400px; overflow-y: auto; margin-top: 15px;"></div>
+        </div>
     </div>
 
     <script>
         let currentUser = null;
-        let pelanggaranList = [];
         let rentalsData = [];
+        // Chart variables
+        let rentedUnitsChart, topUnitsChart, rentedUnitsByAgentChart, topUnitsByAgentChart;
 
-        // sidebar
-        const sidebar = document.getElementById('sidebar');
-        const toggleBtn = document.getElementById('toggle-sidebar');
-
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('hide');
-        });
-
-        // Set email user
-        const currentUserEmail = sessionStorage.getItem('userEmail') || 'belum login';
-        document.getElementById('user-email').innerText = currentUserEmail;
-
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        
+        document.addEventListener('DOMContentLoaded', () => {
             checkAuthStatus();
-            initializeCurrentDateTime();
-            loadPelanggaranList();
+            document.getElementById('toggle-sidebar').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('hide');
+            });
         });
 
         async function checkAuthStatus() {
@@ -572,113 +262,90 @@
                     showAuthSection();
                 }
             } catch (error) {
-                showAlert('Error checking auth status', 'danger');
+                showAlert('Gagal terhubung ke server.', 'danger');
             }
         }
 
-        function initializeCurrentDateTime() {
+        function initializeDateTime() {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
             const currentTime = now.toTimeString().slice(0, 5);
-            
             document.getElementById('tanggal_checkin').value = today;
             document.getElementById('waktu_checkin').value = currentTime;
             document.getElementById('tanggal_checkout').value = today;
-            
-            calculateLamaMenginap();
-        }
-
-        async function loadPelanggaranList() {
-            try {
-                const response = await fetch('/api/pelanggaran-list');
-                const data = await response.json();
-                pelanggaranList = data.data;
-            } catch (error) {
-                console.error('Error loading pelanggaran list:', error);
-            }
+            calculateCheckoutAndDuration();
         }
 
         async function login() {
             const email = document.getElementById('login-email').value;
             const password = document.getElementById('login-password').value;
-
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
-
                 const data = await response.json();
                 if (data.success) {
-                    currentUser = email;
+                    currentUser = data.user;
                     showMainSection();
                 } else {
                     showAlert(data.message, 'danger');
                 }
             } catch (error) {
-                showAlert('Error during login', 'danger');
+                showAlert('Error saat login.', 'danger');
             }
         }
 
         async function signup() {
-        const email = document.getElementById('signup-email').value.trim();
-        const password = document.getElementById('signup-password').value;
-        const nib = document.getElementById('nib').value.trim();
-
-        // Validasi frontend sederhana NIB sebelum submit
-        if (!/^\d{13}$/.test(nib)) {
-            showAlert('NIB tidak valid.', 'danger');
-            return;
-        }
-        if (password.length < 8) {
-            showAlert('Password harus minimal 8 karakter.', 'danger');
-            return;
-        }
-        if (!email) {
-            showAlert('Email harus diisi.', 'danger');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, nib }) // sekarang sudah ada nib
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                showAlert(data.message, 'success');
-                showLogin();
-            } else {
-                showAlert(data.message, 'danger');
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const nib = document.getElementById('nib').value;
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, nib })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    showLogin();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('Error saat mendaftar.', 'danger');
             }
-        } catch (error) {
-            showAlert('Error during signup', 'danger');
         }
-    }
-
-
 
         async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                currentUser = null;
-                showAuthSection();
-            } catch (error) {
-                showAlert('Error during logout', 'danger');
+            await fetch('/api/logout', { method: 'POST' });
+            currentUser = null;
+            window.location.reload();
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+            document.getElementById(pageId).classList.remove('hidden');
+            
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            let menuBtnId = `menu-${pageId.split('-')[0]}`;
+            if (pageId === 'unit-management-section') {
+                menuBtnId = 'menu-units';
+            }
+            const activeMenu = document.getElementById(menuBtnId);
+
+            if (activeMenu) activeMenu.classList.add('active');
+
+            if (pageId === 'input-form-section') {
+                document.getElementById('rental-input-form').reset();
+                initializeDateTime();
+                loadMyUnitsForInput();
             }
-        }
-
-        function showLogin() {
-            document.getElementById('login-page').classList.remove('hidden');
-            document.getElementById('signup-page').classList.add('hidden');
-        }
-
-        function showSignup() {
-            document.getElementById('login-page').classList.add('hidden');
-            document.getElementById('signup-page').classList.remove('hidden');
+            if (pageId === 'view-data-section') loadRentalsData();
+            if (pageId === 'dashboard-section') loadDashboardData();
+            if (pageId === 'unit-management-section') loadAgentsForManagement();
         }
 
         function showAuthSection() {
@@ -689,518 +356,616 @@
         function showMainSection() {
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('main-section').classList.remove('hidden');
-            document.getElementById('user-info').innerHTML = `👤 <strong>${currentUser}</strong>`;
-            showInputForm();
+            document.getElementById('user-info').innerHTML = `👤 <strong>${currentUser.email}</strong><br>`;
+            
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = isAdmin ? 'block' : 'none';
+            });
+            
+            showPage('dashboard-section');
+        }
+        
+        function showLogin() {
+            document.getElementById('login-page').classList.remove('hidden');
+            document.getElementById('signup-page').classList.add('hidden');
         }
 
-        function showInputForm() {
-            document.getElementById('input-form-section').classList.remove('hidden');
-            document.getElementById('view-data-section').classList.add('hidden');
-            document.getElementById('menu-input').classList.add('active');
-            document.getElementById('menu-view').classList.remove('active');
-        }
-
-        function showViewData() {
-            document.getElementById('input-form-section').classList.add('hidden');
-            document.getElementById('view-data-section').classList.remove('hidden');
-            document.getElementById('menu-input').classList.remove('active');
-            document.getElementById('menu-view').classList.add('active');
-            loadRentalsData();
+        function showSignup() {
+            document.getElementById('login-page').classList.add('hidden');
+            document.getElementById('signup-page').classList.remove('hidden');
         }
 
         function toggleMetodeLain() {
-            const metode = document.getElementById('metode_pembayaran').value;
-            const metodeLainGroup = document.getElementById('metode-lain-group');
-            if (metode === 'Others') {
-                metodeLainGroup.classList.remove('hidden');
-            } else {
-                metodeLainGroup.classList.add('hidden');
-            }
+            document.getElementById('metode-lain-group').classList.toggle('hidden', document.getElementById('metode_pembayaran').value !== 'Others');
         }
 
-        function calculateLamaMenginap() {
-            const checkin = document.getElementById('tanggal_checkin').value;
-            const checkout = document.getElementById('tanggal_checkout').value;
-            
-            if (checkin && checkout) {
-                const checkinDate = new Date(checkin);
-                const checkoutDate = new Date(checkout);
-                const diffTime = checkoutDate - checkinDate;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                const infoDiv = document.getElementById('lama-menginap-info');
-                if (diffDays < 0) {
-                    infoDiv.innerHTML = '<div class="alert alert-danger">Tanggal Check-Out tidak boleh lebih awal dari Tanggal Check-In</div>';
-                } else {
-                    infoDiv.innerHTML = `<div class="alert alert-info">🕒 Lama Menginap: <strong>${diffDays} hari</strong></div>`;
+        function handleJenisSewaChange() {
+            const jenisSewa = document.getElementById('jenis_sewa').value;
+            document.getElementById('bulanan-options').classList.toggle('hidden', jenisSewa !== 'Bulanan');
+            calculateCheckoutAndDuration();
+        }
+        
+        function calculateCheckoutAndDuration() {
+            try {
+                const checkinInput = document.getElementById('tanggal_checkin');
+                const checkoutEl = document.getElementById('tanggal_checkout');
+                if (!checkinInput.value) return;
+
+                const checkin = new Date(checkinInput.value);
+
+                if (document.getElementById('jenis_sewa').value === 'Bulanan') {
+                    const months = parseInt(document.getElementById('jumlah_bulan').value) || 1;
+                    const newCheckout = new Date(checkin);
+                    newCheckout.setMonth(checkin.getMonth() + months);
+                    checkoutEl.valueAsDate = newCheckout;
                 }
-                return diffDays;
+                
+                if (!checkoutEl.value) return;
+
+                const checkout = new Date(checkoutEl.value);
+                const diffTime = Math.max(0, checkout - checkin);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                document.getElementById('lama-menginap-info').textContent = `Lama Menginap: ${diffDays} Hari`;
+            } catch (e) {
+                // handle errors
             }
-            return 0;
         }
-
-        // Add event listeners for date calculation
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('tanggal_checkin').addEventListener('change', calculateLamaMenginap);
-            document.getElementById('tanggal_checkout').addEventListener('change', calculateLamaMenginap);
-        });
-
+        
         async function saveRental() {
-            const lamaMenginap = calculateLamaMenginap();
-            if (lamaMenginap < 0) {
-                showAlert('Tanggal Check-Out tidak boleh lebih awal dari Tanggal Check-In', 'danger');
-                return;
-            }
-
-            const data = {
+            // 1. Gather all data from the form fields
+            const rentalData = {
                 nama: document.getElementById('nama').value,
+                nik: document.getElementById('nik_input').value,
+                status_pasutri: document.getElementById('status_pasutri_input').value,
                 tower: document.getElementById('tower').value,
                 lantai: document.getElementById('lantai').value,
                 unit: document.getElementById('unit').value,
                 status_kewarganegaraan: document.getElementById('status_kewarganegaraan').value,
+                jenis_sewa: document.getElementById('jenis_sewa').value,
                 metode_pembayaran: document.getElementById('metode_pembayaran').value,
                 metode_lain: document.getElementById('metode_lain').value,
                 tanggal_checkin: document.getElementById('tanggal_checkin').value,
                 waktu_checkin: document.getElementById('waktu_checkin').value,
-                tanggal_checkout: document.getElementById('tanggal_checkout').value,
-                lama_menginap: lamaMenginap,
-                jenis_sewa: document.getElementById('jenis_sewa').value,
-                lama_sewa_bulan: document.getElementById('lama_sewa').value
+                tanggal_checkout: document.getElementById('tanggal_checkout').value
             };
 
-            try {
-                const response = await fetch('/api/rental', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showAlert(result.message, 'success');
-                    document.getElementById('nama').value = '';
-                    document.getElementById('lantai').value = '';
-                    document.getElementById('unit').value = '';
-                    document.getElementById('metode_lain').value = '';
-                    document.getElementById('lama_sewa').value = '';
-                    initializeCurrentDateTime();
-                } else {
-                    showAlert(result.message, 'danger');
-                }
-            } catch (error) {
-                showAlert('Error saving rental data', 'danger');
+            // 2. Perform basic validation
+            if (!rentalData.nama || !rentalData.nik || !rentalData.unit) {
+                showAlert('Nama, NIK, dan Unit harus diisi.', 'danger');
+                return;
             }
-        }
+            if (!/^\d{16}$/.test(rentalData.nik)) {
+                showAlert('NIK harus terdiri dari 16 digit angka.', 'danger');
+                return;
+            }
 
-
-
-        async function loadRentalsData() {
+            // 3. Send the data to the backend API
             try {
                 const response = await fetch('/api/rentals', {
-                    method: 'GET',
-                    credentials: 'include'
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(rentalData)
                 });
 
                 const result = await response.json();
-                console.log("Hasil dari /api/rentals:", result); // Tambahan debug
-
+                
+                // 4. Show success/error message and redirect on success
+                showAlert(result.message, result.success ? 'success' : 'danger');
                 if (result.success) {
-                    rentalsData = result.data;
-                    displayRentalsTable();
-                    displayRentalsExpanders();
-                } else {
-                    showAlert('Gagal mengambil data: ' + result.message, 'danger');
+                    document.getElementById('rental-input-form').reset();
+                    initializeDateTime(); // Reset date fields
+                    showPage('view-data-section'); // Go to the data table page
                 }
             } catch (error) {
-                console.error("Fetch error:", error);
-                showAlert('Error loading rentals data (fetch failed)', 'danger');
+                console.error('Error saving rental data:', error);
+                showAlert('Terjadi kesalahan koneksi saat menyimpan data.', 'danger');
             }
         }
-
-
         
-
-        function displayRentalsExpanders() {
+        async function loadRentalsData(isRefresh = false, customData = null) {
+            const tableContainer = document.getElementById('rentals-table');
             const expandersContainer = document.getElementById('rentals-expanders');
-            let expandersHTML = '';
+            tableContainer.innerHTML = '<p>Memuat data...</p>';
+            expandersContainer.innerHTML = '';
+            
+            let dataToDisplay;
+            if (customData) {
+                dataToDisplay = customData;
+            } else {
+                const response = await fetch('/api/rentals');
+                const result = await response.json();
+                if (!result.success) { showAlert(result.message, 'danger'); return; }
+                rentalsData = result.data;
+                const commentFilter = document.getElementById('comment-filter').checked;
+                dataToDisplay = commentFilter ? rentalsData.filter(r => r.komentar && r.komentar.length > 0) : rentalsData;
+            }
 
-            rentalsData.forEach((rental, index) => {
-                expandersHTML += `
-                    <div class="expander">
-                        <div class="expander-header" onclick="toggleExpander(${index})">
-                            Penyewa ke-${index + 1}: ${rental.nama} (diinput oleh ${rental.email_agent})
-                        </div>
-                        <div class="expander-content" id="expander-${index}">
-                            <div class="form-group">
-                                <label>Isi Waktu Check-out</label>
-                                <input type="time" id="waktu-checkout-${index}" value="${rental.waktu_checkout || ''}">
-                            </div>
-                            <button onclick="saveCheckoutTime(${rental.id}, ${index})" class="btn-success">Simpan Waktu Check-out</button>
-                            
-                            <h4>Komentar</h4>
-                            <div class="checkbox-group" id="komentar-${index}">
-                                ${pelanggaranList.map(pelanggaran => `
-                                    <label>
-                                        <input type="checkbox" value="${pelanggaran}" 
-                                               ${(rental.komentar || []).includes(pelanggaran) ? 'checked' : ''}>
-                                        ${pelanggaran}
-                                    </label>
-                                `).join('')}
-                            </div>
-                            <button onclick="saveKomentar(${rental.id}, ${index})" class="btn-success">Simpan Komentar</button>
-                        </div>
-                    </div>
-                `;
+            if (dataToDisplay.length === 0) {
+                tableContainer.innerHTML = '<div class="alert alert-info">Tidak ada data.</div>';
+                return;
+            }
+            
+            let tableHTML = `<table class="table"><thead><tr>
+                <th>NIK</th><th>Nama</th><th>Status Perkawinan</th><th>Unit</th><th>Jenis Sewa</th>
+                <th>Metode Pembayaran</th><th>Tgl Check In</th><th>Tgl Check Out</th><th>Lama (Hari)</th>
+                <th>Komentar</th><th>Email Agen</th><th>Diedit Oleh</th><th>Log</th>
+            </tr></thead><tbody>`;
+
+            dataToDisplay.forEach(r => {
+                let paymentMethod = r.metode_pembayaran;
+                if (paymentMethod === 'Others' && r.metode_lain) {
+                    paymentMethod = `Others (${r.metode_lain})`;
+                }
+                const checkinDate = r.tanggal_checkin ? new Date(r.tanggal_checkin).toLocaleDateString('id-ID') : '';
+                const checkoutDate = r.tanggal_checkout ? new Date(r.tanggal_checkout).toLocaleDateString('id-ID') : '';
+
+                tableHTML += `<tr>
+                    <td>${r.nik || ''}</td>
+                    <td>${r.nama || ''}</td>
+                    <td>${r.status_pasutri || ''}</td>
+                    <td>${r.tower}-${r.lantai}-${r.unit}</td>
+                    <td>${r.jenis_sewa || ''}</td>
+                    <td>${paymentMethod || ''}</td>
+                    <td>${checkinDate}</td>
+                    <td>${checkoutDate}</td>
+                    <td>${r.lama_menginap || ''}</td>
+                    <td>${(r.komentar || []).join(', ')}</td>
+                    <td>${r.email_agent || ''}</td>
+                    <td>${r.diedit_oleh || ''}</td>
+                    <td>
+                        ${r.logs && r.logs.length > 0 
+                            ? `<button onclick="showLogs(${r.id})">Detail Log</button>` 
+                            : '<span>-</span>'}
+                    </td>
+                </tr>`;
             });
-
+            tableHTML += '</tbody></table>';
+            tableContainer.innerHTML = tableHTML;
+            
+            const pelanggaranList = await fetch('/api/pelanggaran-list').then(res => res.json()).then(d => d.data);
+            let expandersHTML = '';
+            dataToDisplay.forEach((r) => {
+                expandersHTML += `<div class="expander" style="border: 1px solid #ddd; margin-bottom: 10px;">
+                    <div class="expander-header" style="padding: 10px; background: #f0f0f0; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        ${r.nama} (Unit ${r.tower}-${r.lantai}-${r.unit})
+                    </div>
+                    <div class="expander-content hidden" style="padding: 15px;">
+                        <div class="form-group"><label>Jenis Sewa</label><select id="edit_jenis_sewa_${r.id}">${['Harian','Mingguan','Bulanan'].map(o => `<option value="${o}" ${r.jenis_sewa === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+                        <div class="form-group"><label>Metode Pembayaran</label><select id="edit_metode_pembayaran_${r.id}">${['Cash','Kartu Kredit','Kartu Debit','QRIS','Others'].map(o => `<option value="${o}" ${r.metode_pembayaran === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+                        <div class="form-group"><label>Waktu Check-Out</label><input type="time" id="edit_waktu_checkout_${r.id}" value="${r.waktu_checkout || ''}"></div>
+                            
+                                                    <div class="form-group">
+                                <label>Komentar</label>
+                                <div>${pelanggaranList.map(p => {
+                                    const checkboxId = `cb-${r.id}-${p.replace(/[^a-zA-Z0-9]/g, '-')}`; 
+                                    return `
+                                        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                            <input type="checkbox" id="${checkboxId}" class="komentar-cb-${r.id}" value="${p}" ${(r.komentar || []).includes(p) ? 'checked' : ''} style="width: auto; margin-right: 8px;">
+                                            <label for="${checkboxId}" style="font-weight: normal; margin-bottom: 0; display: inline;">${p}</label>
+                                        </div>
+                                    `;
+                                }).join('')}</div>
+                            </div>
+                            <div style="text-align: left;">
+                                <button class="btn-success" onclick="updateRental(${r.id})">Simpan Perubahan</button>
+                            </div>
+                    </div>
+                </div>`;
+            });
             expandersContainer.innerHTML = expandersHTML;
         }
 
-        function displayRentalsTable() {
-            const tableContainer = document.getElementById('rentals-table');
-
-            if (rentalsData.length === 0) {
-                tableContainer.innerHTML = '<div class="alert alert-info">Belum ada data.</div>';
-                return;
-            }
-
-            let tableHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Nama Penyewa</th>
-                            <th>Jenis Sewa</th> <!-- Dipindahkan ke sini -->
-                            <th>Status Kewarganegaraan</th>
-                            <th>Tower</th>
-                            <th>Lantai</th>
-                            <th>Unit</th>
-                            <th>Metode Pembayaran</th>
-                            <th>Tanggal Check-In</th>
-                            <th>Waktu Check-In</th>
-                            <th>Tanggal Check-Out</th>
-                            <th>Waktu Check-Out</th>
-                            <th>Lama Menginap (hari)</th>
-                            <th>Komentar</th>
-                            <th>Agen</th>
-                            <th>Diedit Oleh</th>
-                            <th>Log History</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            rentalsData.forEach(rental => {
-                const komentarStr = Array.isArray(rental.komentar) ? rental.komentar.join(', ') : '';
-                tableHTML += `
-                    <tr>
-                        <td>${rental.nama || ''}</td>
-                        <td>${rental.jenis_sewa || ''}</td> <!-- Dipindahkan ke sini -->
-                        <td>${rental.status_kewarganegaraan || ''}</td>
-                        <td>${rental.tower || ''}</td>
-                        <td>${rental.lantai || ''}</td>
-                        <td>${rental.unit || ''}</td>
-                        <td>${rental.metode_pembayaran || ''}</td>
-                        <td>${rental.tanggal_checkin || ''}</td>
-                        <td>${rental.waktu_checkin || ''}</td>
-                        <td>${rental.tanggal_checkout || ''}</td>
-                        <td>${rental.waktu_checkout || ''}</td>
-                        <td>${rental.lama_menginap || ''}</td>
-                        <td>${komentarStr}</td>
-                        <td>${rental.email_agent || ''}</td>
-                        <td>${rental.diedit_oleh || ''}</td>
-                        <td>
-                            <button onclick="showHistory(${rental.id})">Show History</button>
-                        </td>
-                    </tr>
-                `;
-            });
-
-            tableHTML += '</tbody></table>';
-            tableContainer.innerHTML = tableHTML;
-        }
-
-
-
-        function toggleExpander(index) {
-            const content = document.getElementById(`expander-${index}`);
-            content.classList.toggle('active');
-        }
-
-        async function saveCheckoutTime(rentalId, index) {
-            const waktuCheckout = document.getElementById(`waktu-checkout-${index}`).value;
-
-            try {
-                const response = await fetch('/api/update-checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rentalId, waktuCheckout })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showAlert(result.message, 'success');
-                    loadRentalsData(); // Refresh data
-                } else {
-                    showAlert(result.message, 'danger');
-                }
-            } catch (error) {
-                showAlert('Error saving checkout time', 'danger');
-            }
-        }
-
-        async function saveKomentar(rentalId, index) {
-            const checkboxes = document.querySelectorAll(`#komentar-${index} input[type="checkbox"]:checked`);
-            const selectedKomentar = Array.from(checkboxes).map(cb => cb.value);
-
-            try {
-                const response = await fetch('/api/update-komentar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rentalId, komentar: selectedKomentar })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showAlert(result.message, 'success');
-                    loadRentalsData(); // Refresh data
-                } else {
-                    showAlert(result.message, 'danger');
-                }
-            } catch (error) {
-                showAlert('Error saving komentar', 'danger');
-            }
-        }
-
-        async function downloadCSV() {
-            try {
-                const response = await fetch('/api/download-csv');
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = 'data_penyewa.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                } else {
-                    showAlert('Error downloading CSV', 'danger');
-                }
-            } catch (error) {
-                showAlert('Error downloading CSV', 'danger');
-            }
-        }
-
-        function refreshTable() {
-            loadRentalsData();
-            showAlert('Tabel berhasil di-refresh', 'success');
-        }
-
-
-
-        let lastHistoryLogs = []; // disimpan global agar bisa diakses saat export
-
-        async function showHistory(rentalId) {
-            try {
-                const response = await fetch(`/api/logs/${rentalId}`);
-                const result = await response.json();
-
-                if (result.success && result.logs.length > 0) {
-                    lastHistoryLogs = result.logs; // simpan agar bisa export
-
-                    let htmlContent = `<p><strong>🆔 Penyewa ID:</strong> ${rentalId}</p><hr>`;
-                    const formatTime = val => {
-                        if (!val || typeof val !== 'string') return '-';
-                        const match = val.match(/^(\d{2}:\d{2})/);
-                        return match ? match[1] : val;
-                    };
-
-                    result.logs.forEach(log => {
-                        const date = new Date(log.time_stamp);
-                        const timestamp = new Date(log.time_stamp).toLocaleString('id-ID', {
-                            timeZone: 'Asia/Jakarta',
-                            hour12: false
-                        }).replace(',', '');
-
-                        const oldVal = formatTime(log.old_value);
-                        const newVal = formatTime(log.new_value);
-
-                        htmlContent += `
-                            <div style="margin-bottom: 15px;">
-                                <p><strong>📅 ${timestamp}</strong></p>
-                                <p>👤 ${log.email} - <strong>${log.action.toUpperCase()}</strong></p>
-                                <p>📝 Kolom: ${log.field_changed}</p>
-                                <p>🔎 ${oldVal} → ${newVal}</p>
-                                <hr>
-                            </div>
-                        `;
-                    });
-
-                    document.getElementById('historyContent').innerHTML = htmlContent;
-                    document.getElementById('historyModal').style.display = 'block';
-                } else {
-                    document.getElementById('historyContent').innerHTML = `<p>Tidak ada riwayat perubahan.</p>`;
-                    document.getElementById('historyModal').style.display = 'block';
-                }
-            } catch (error) {
-                console.error('Gagal memuat riwayat log:', error);
-                alert('Gagal memuat log.');
-            }
-        }
-
-        function downloadHistoryCSV() {
-            if (!lastHistoryLogs || lastHistoryLogs.length === 0) {
-                alert("Belum ada log untuk diunduh.");
-                return;
-            }
-
-            const headers = ["Waktu", "Email", "Aksi", "Kolom", "Old Value", "New Value"];
-            let csv = headers.join(",") + "\n";
-
-            const formatTime = val => {
-                if (!val || typeof val !== 'string') return '-';
-                const match = val.match(/^(\d{2}:\d{2})/);
-                return match ? match[1] : val;
+        async function updateRental(id) {
+            const data = {
+                jenis_sewa: document.getElementById(`edit_jenis_sewa_${id}`).value,
+                metode_pembayaran: document.getElementById(`edit_metode_pembayaran_${id}`).value,
+                waktu_checkout: document.getElementById(`edit_waktu_checkout_${id}`).value,
+                komentar: Array.from(document.querySelectorAll(`.komentar-cb-${id}:checked`)).map(cb => cb.value)
             };
+            const response = await fetch(`/api/rentals/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if (result.success) loadRentalsData();
+        }
+        
+        async function checkDuplicates() {
+            showAlert('Mencari data duplikat...', 'info');
+            const response = await fetch('/api/rentals/duplicates');
+            const result = await response.json();
+            if (result.success) {
+                if(result.data.length > 0) {
+                    showAlert(`Ditemukan ${result.data.length} data dengan NIK ganda. Menampilkan hasil.`, 'info');
+                    loadRentalsData(false, result.data);
+                } else {
+                    showAlert('Tidak ditemukan data duplikat.', 'success');
+                }
+            }
+        }
 
-            lastHistoryLogs.forEach(log => {
-                const date = new Date(log.time_stamp).toISOString().replace('T', ' ').substring(0, 19);
-                const row = [
-                    date,
-                    log.email,
-                    log.action,
-                    log.field_changed,
-                    formatTime(log.old_value),
-                    formatTime(log.new_value)
-                ].map(v => `"${v || ""}"`).join(",");
-                csv += row + "\n";
+        function showLogs(rentalId) {
+            const rental = rentalsData.find(r => r.id === rentalId);
+            if (!rental || !rental.logs || rental.logs.length === 0) return;
+
+            document.getElementById('log-modal-title').innerText = `Riwayat Perubahan: ${rental.nama}`;
+            const modalBody = document.getElementById('log-modal-body');
+            
+            document.getElementById('download-log-tenant-csv').setAttribute('onclick', `downloadTenantLogCSV(${rental.id})`);
+            
+            let logsHTML = '<table class="table"><thead><tr><th>Waktu</th><th>Email</th><th>Field</th><th>Nilai Lama</th><th>Nilai Baru</th></tr></thead><tbody>';
+            
+            rental.logs.forEach(log => {
+                logsHTML += `<tr>
+                    <td>${new Date(log.time_stamp).toLocaleString('id-ID')}</td>
+                    <td>${log.email || ''}</td>
+                    <td>${log.field_changed || ''}</td>
+                    <td><div style="max-height: 50px; overflow-y: auto;">${log.old_value || ''}</div></td>
+                    <td><div style="max-height: 50px; overflow-y: auto;">${log.new_value || ''}</div></td>
+                </tr>`;
             });
 
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "log_riwayat_penyewa.csv";
-            a.style.display = "none";
-
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            logsHTML += '</tbody></table>';
+            modalBody.innerHTML = logsHTML;
+            document.getElementById('log-modal').style.display = 'block';
         }
 
+        function closeLogModal() {
+            document.getElementById('log-modal').style.display = 'none';
+        }
 
-        async function downloadAllLogsCSV() {
-            try {
-                const response = await fetch('/api/all-logs');
-                const result = await response.json();
+        window.onclick = function(event) {
+            const modal = document.getElementById('log-modal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
 
-                if (result.success && result.logs.length > 0) {
-                    const headers = ["Rental ID", "Waktu", "Email", "Aksi", "Kolom", "Old Value", "New Value"];
-                    let csv = headers.join(",") + "\n";
+        function downloadRentalsCSV() {
+            window.location.href = '/api/rentals/csv';
+        }
+        
+        function downloadAllLogsCSV() {
+            window.location.href = '/api/logs/csv';
+        }
 
-                    const formatTime = val => {
-                        if (!val || typeof val !== 'string') return '-';
-                        const match = val.match(/^(\d{2}:\d{2})/);
-                        return match ? match[1] : val;
+        function downloadTenantLogCSV(rentalId) {
+            if (!rentalId) return;
+            window.location.href = `/api/rentals/${rentalId}/log/csv`;
+        }
+
+        function loadDashboardData() {
+            loadDashboardStats();
+            loadDashboardViolations();
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            if (isAdmin) {
+                loadRentalsForViolationDropdown();
+            }
+        }
+
+        async function loadDashboardStats() {
+            const filter = document.getElementById('stats-filter').value;
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            
+            // Destroy existing charts before redrawing
+            if (rentedUnitsChart) rentedUnitsChart.destroy();
+            if (topUnitsChart) topUnitsChart.destroy();
+            if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
+            if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
+            
+            const response = await fetch('/api/rentals');
+            const result = await response.json();
+            if (!result.success) {
+                showAlert('Gagal memuat data statistik.', 'danger');
+                return;
+            }
+            let allRentals = result.data;
+
+            // Filter data based on period
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+            let filteredRentals = allRentals;
+            if (filter === 'weekly') {
+                filteredRentals = allRentals.filter(r => new Date(r.tanggal_checkin) >= oneWeekAgo);
+            } else if (filter === 'monthly') {
+                filteredRentals = allRentals.filter(r => new Date(r.tanggal_checkin) >= firstDayOfMonth);
+            }
+
+            // --- 1. Rented Units per Period (Line Chart) ---
+            const rentalCounts = filteredRentals.reduce((acc, rental) => {
+                const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
+                acc[date] = (acc[date] || 0) + 1;
+                return acc;
+            }, {});
+            const sortedDates = Object.keys(rentalCounts).sort();
+            const chartLabels = sortedDates;
+            const chartData = sortedDates.map(date => rentalCounts[date]);
+
+            rentedUnitsChart = new Chart(document.getElementById('rentedUnitsChart'), {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Jumlah Unit Disewakan',
+                        data: chartData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                }
+            });
+
+            // --- 2. Top 5 Popular Units (Bar Chart) ---
+            const unitPopularity = filteredRentals.reduce((acc, rental) => {
+                const unitId = `${rental.tower}-${rental.lantai}-${rental.unit}`;
+                const agent = rental.email_agent;
+                if (!acc[unitId]) {
+                    acc[unitId] = { count: 0, agent: agent };
+                }
+                acc[unitId].count++;
+                return acc;
+            }, {});
+            const top5Units = Object.entries(unitPopularity)
+                .sort(([, a], [, b]) => b.count - a.count)
+                .slice(0, 5);
+            
+            topUnitsChart = new Chart(document.getElementById('topUnitsChart'), {
+                type: 'bar',
+                data: {
+                    labels: top5Units.map(([unitId]) => unitId),
+                    datasets: [{
+                        label: 'Jumlah Sewa',
+                        data: top5Units.map(([, data]) => data.count),
+                        backgroundColor: 'rgba(255, 159, 64, 0.5)'
+                    }]
+                },
+                options: { indexAxis: 'y' }
+            });
+
+            // --- 3. Admin-Specific Charts ---
+            if (isAdmin) {
+                // Rentals by Agent (Line)
+                const rentalsByAgent = filteredRentals.reduce((acc, rental) => {
+                    const agent = rental.email_agent || 'Unknown';
+                    const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
+                    if (!acc[agent]) acc[agent] = {};
+                    acc[agent][date] = (acc[agent][date] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const agentColors = ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff'];
+                const agentDatasets = Object.keys(rentalsByAgent).map((agent, index) => {
+                    const agentData = sortedDates.map(date => rentalsByAgent[agent][date] || 0);
+                    return {
+                        label: agent,
+                        data: agentData,
+                        borderColor: agentColors[index % agentColors.length],
+                        tension: 0.1,
+                        hidden: index >= 5 // Optionally hide agents beyond the top 5 for clarity
                     };
+                });
 
-                    result.logs.forEach(log => {
-                        const timestamp = new Date(log.time_stamp).toISOString().replace('T', ' ').substring(0, 19);
-                        const row = [
-                            log.rental_id,
-                            timestamp,
-                            log.email,
-                            log.action,
-                            log.field_changed,
-                            formatTime(log.old_value),
-                            formatTime(log.new_value)
-                        ].map(v => `"${v || ""}"`).join(",");
-                        csv += row + "\n";
-                    });
+                rentedUnitsByAgentChart = new Chart(document.getElementById('rentedUnitsByAgentChart'), {
+                    type: 'line',
+                    data: {
+                        labels: sortedDates,
+                        datasets: agentDatasets
+                    }
+                });
 
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "semua_log_riwayat.csv";
-                    a.style.display = "none";
-
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                } else {
-                    alert("Tidak ada log riwayat ditemukan.");
-                }
-            } catch (error) {
-                console.error("Gagal mengunduh semua log riwayat:", error);
-                alert("Gagal mengunduh log.");
+                // Top 5 Units with Agent Info (Bar)
+                topUnitsByAgentChart = new Chart(document.getElementById('topUnitsByAgentChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: top5Units.map(([unitId, data]) => `${unitId} (${data.agent})`),
+                        datasets: [{
+                            label: 'Jumlah Sewa',
+                            data: top5Units.map(([, data]) => data.count),
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                        }]
+                    },
+                    options: { indexAxis: 'y' }
+                });
             }
         }
 
+        // Function to display violation photos directly and hide uploader for agents
+        async function loadDashboardViolations() {
+            const container = document.getElementById('violations-container');
+            container.innerHTML = 'Memuat laporan...';
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
 
+            const response = await fetch('/api/dashboard/violations');
+            const result = await response.json();
+            if (result.success) {
+                let html = '';
+                result.data.forEach(v => {
+                    const adminControls = isAdmin ? `
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button class="btn-success" style="flex: 1; padding: 5px 8px; font-size: 12px; margin: 0;" onclick="editViolation(${v.id})">Edit Deskripsi</button>
+                            <button class="btn-danger" style="flex: 1; padding: 5px 8px; font-size: 12px; margin: 0;" onclick="deleteViolation(${v.id})">Hapus Laporan</button>
+                        </div>
+                    ` : '';
+                    
+                    html += `<div style="border-bottom: 1px solid #ccc; padding: 10px 0;">
+                        <p><strong>Penyewa:</strong> ${v.nama} (Unit ${v.unit})</p>
+                        <p><strong>Deskripsi:</strong> <span id="desc-${v.id}">${v.description}</span></p>
+                        
+                                                    ${v.photo_url ? `<img src="${v.photo_url}" style="display: block; margin: 10px auto; max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 5px;" alt="Foto Pelanggaran">` : ''}
+                        
+                        <p><small>Tanggal Laporan: ${new Date(v.created_at).toLocaleString('id-ID')}</small></p>
+                        ${adminControls}
+                    </div>`;
+                });
+                container.innerHTML = html || '<p>Belum ada laporan.</p>';
+            }
+        }
+        
+        // Function to edit a violation report
+        async function editViolation(violationId) {
+            const currentDescription = document.getElementById(`desc-${violationId}`).innerText;
+            const newDescription = prompt("Masukkan deskripsi baru:", currentDescription);
+            if (newDescription === null || newDescription.trim() === '' || newDescription === currentDescription) return;
 
-        //sewa bulanan
-        function toggleJenisSewa() {
-            const jenis = document.getElementById('jenis_sewa').value;
-            const lamaSewaGroup = document.getElementById('lama-sewa-group');
-            const checkoutGroup = document.getElementById('checkout-group');
+            const response = await fetch(`/api/dashboard/violations/${violationId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: newDescription })
+            });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if (result.success) loadDashboardViolations();
+        }
 
-            if (jenis === 'Bulanan') {
-                lamaSewaGroup.classList.remove('hidden');
-                checkoutGroup.classList.remove('hidden'); // tetap tampil
-                updateCheckoutForBulanan();
-            } else {
-                lamaSewaGroup.classList.add('hidden');
-                checkoutGroup.classList.remove('hidden');
-            }
+        // Function to delete a violation report
+        async function deleteViolation(violationId) {
+            if (!confirm('Anda yakin ingin menghapus laporan pelanggaran ini? Tindakan ini tidak dapat dibatalkan.')) return;
+
+            const response = await fetch(`/api/dashboard/violations/${violationId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if (result.success) loadDashboardViolations();
         }
 
 
-        function updateCheckoutForBulanan() {
-            const checkin = document.getElementById('tanggal_checkin').value;
-            const lama = parseInt(document.getElementById('lama_sewa').value);
-
-            if (checkin && lama > 0) {
-                const checkinDate = new Date(checkin);
-                const originalDay = checkinDate.getDate();
-                const originalMonth = checkinDate.getMonth();
-
-                checkinDate.setMonth(originalMonth + lama);
-
-                // Jika hari setelah update melompat bulan, set ke akhir bulan sebelumnya
-                if (checkinDate.getDate() < originalDay) {
-                    checkinDate.setDate(0); // tanggal 0 akan ke akhir bulan sebelumnya
-                }
-
-                const year = checkinDate.getFullYear();
-                const month = String(checkinDate.getMonth() + 1).padStart(2, '0');
-                const day = String(checkinDate.getDate()).padStart(2, '0');
-
-                const newCheckoutDate = `${year}-${month}-${day}`;
-                document.getElementById('tanggal_checkout').value = newCheckoutDate;
-
-                // Hitung ulang lama menginap (dalam hari)
-                calculateLamaMenginap();
+        async function loadRentalsForViolationDropdown() {
+            const select = document.getElementById('violation-rental-id');
+            const response = await fetch('/api/rentals');
+            const result = await response.json();
+            if (result.success) {
+                select.innerHTML = '<option value="">Pilih Penyewa</option>';
+                result.data.forEach(r => {
+                    select.innerHTML += `<option value="${r.id}">${r.nama} (Unit ${r.tower}-${r.lantai}-${r.unit})</option>`;
+                });
             }
         }
 
+        async function submitViolation() {
+            const formData = new FormData();
+            formData.append('rental_id', document.getElementById('violation-rental-id').value);
+            formData.append('description', document.getElementById('violation-desc').value);
+            const photoFile = document.getElementById('violation-photo-file').files[0];
+            if (photoFile) {
+                formData.append('photo', photoFile);
+            }
+            const response = await fetch('/api/dashboard/violations', { method: 'POST', body: formData });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if (result.success) {
+                 document.getElementById('violation-desc').value = '';
+                 document.getElementById('violation-photo-file').value = '';
+                 loadDashboardViolations();
+            }
+        }
 
+        async function loadAgentsForManagement() {
+            const select = document.getElementById('manage-agent-select');
+            select.innerHTML = '<option>Memuat agen...</option>';
+            const response = await fetch('/api/agents');
+            const result = await response.json();
+            if (result.success) {
+                select.innerHTML = '<option value="">Pilih Agen</option>';
+                result.data.forEach(agent => {
+                    select.innerHTML += `<option value="${agent.email}">${agent.email}</option>`;
+                });
+            }
+        }
+        
+        async function loadUnitsForAgent() {
+            const agentEmail = document.getElementById('manage-agent-select').value;
+            const container = document.getElementById('unit-list-container');
+            if (!agentEmail) { container.innerHTML = ''; return; }
+            container.innerHTML = 'Memuat unit...';
+            
+            const response = await fetch(`/api/units/${encodeURIComponent(agentEmail)}`);
+            const result = await response.json();
+            if (result.success) {
+                let html = '<ul>';
+                result.data.forEach(unit => {
+                    html += `<li>${unit.unit_tower}-${unit.unit_lantai}-${unit.unit_nomor} <button onclick="deleteUnit(${unit.id})" style="background: #dc3545; font-size: 12px; padding: 2px 5px;">Hapus</button></li>`;
+                });
+                container.innerHTML = (result.data.length > 0 ? html + '</ul>' : '<p>Agen ini belum memiliki unit.</p>');
+            }
+        }
 
+        async function addUnit() {
+            const data = {
+                agent_email: document.getElementById('manage-agent-select').value,
+                unit_tower: document.getElementById('new-unit-tower').value,
+                unit_lantai: document.getElementById('new-unit-lantai').value,
+                unit_nomor: document.getElementById('new-unit-nomor').value,
+            };
+            if (!data.agent_email || !data.unit_tower || !data.unit_lantai || !data.unit_nomor) {
+                showAlert('Semua field unit harus diisi.', 'danger'); return;
+            }
+            const response = await fetch('/api/units', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if(result.success) loadUnitsForAgent();
+        }
+        
+        async function deleteUnit(unitId) {
+            if (!confirm('Anda yakin ingin menghapus unit ini?')) return;
+            const response = await fetch(`/api/units/${unitId}`, { method: 'DELETE' });
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            if(result.success) loadUnitsForAgent();
+        }
 
+        async function loadMyUnitsForInput() {
+            const select = document.getElementById('unit-select');
+            select.innerHTML = '<option value="">Memuat unit...</option>';
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            const url = isAdmin ? '/api/all-units' : '/api/my-units';
 
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                if(result.success) {
+                    select.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                    result.data.forEach(u => {
+                        // For admins, show which agent owns the unit
+                        const displayText = isAdmin 
+                            ? `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor} (Agen: ${u.agent_email})`
+                            : `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor}`;
+                        
+                        select.innerHTML += `<option value="${u.unit_tower}|${u.unit_lantai}|${u.unit_nomor}">${displayText}</option>`;
+                    });
+                } else {
+                    select.innerHTML = `<option value="">Gagal memuat unit: ${result.message}</option>`;
+                }
+            } catch (error) {
+                select.innerHTML = '<option value="">Error saat memuat data</option>';
+            }
+        }
+
+        function populateUnitFields() {
+            const selectedUnit = document.getElementById('unit-select').value;
+            if (selectedUnit) {
+                const [tower, lantai, nomor] = selectedUnit.split('|');
+                document.getElementById('tower').value = tower;
+                document.getElementById('lantai').value = lantai;
+                document.getElementById('unit').value = nomor;
+            }
+        }
+        
         function showAlert(message, type) {
-            const alertContainer = document.getElementById('alert-container');
+            const container = document.getElementById('alert-container');
             const alertDiv = document.createElement('div');
             alertDiv.className = `alert alert-${type}`;
             alertDiv.textContent = message;
-            alertContainer.appendChild(alertDiv);
-
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 5000);
+            container.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
         }
     </script>
 </body>
