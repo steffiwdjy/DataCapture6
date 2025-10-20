@@ -170,10 +170,12 @@
                                 <h3 style="text-decoration: underline;">Statistik Detail Setiap Agen</h3>
                                 <h4 style="text-align: center; font-weight: normal;">Jumlah Unit Disewakan (per Agen)</h4>
                                 <canvas id="rentedUnitsByAgentChart"></canvas>
-                                
+
                                 <hr style="margin: 20px 0;">
-                                
-                                </div>
+
+                                <h4 style="text-align: center; font-weight: normal;">Top 5 Unit Populer (per Agen)</h4>
+                                <canvas id="topUnitsByAgentChart"></canvas>
+                            </div>
                         </div>
                         <div class="dashboard-card">
 
@@ -647,131 +649,214 @@
         }
 
         async function loadDashboardStats() {
-            const filter = document.getElementById('stats-filter').value;
-            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
-            
-            // Destroy existing charts before redrawing
-            if (rentedUnitsChart) rentedUnitsChart.destroy();
-            if (topUnitsChart) topUnitsChart.destroy();
-            if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
-            if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
-            
+        const filter = document.getElementById('stats-filter').value;
+        const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+        const adminStatsContainer = document.getElementById('admin-stats-container');
+
+        // Destroy existing charts
+        if (rentedUnitsChart) rentedUnitsChart.destroy();
+        if (topUnitsChart) topUnitsChart.destroy();
+        if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
+        if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
+
+        let allRentals = [];
+
+        // --- Fetch data ---
+        try {
             const response = await fetch('/api/rentals');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             const result = await response.json();
-            if (!result.success) {
-                showAlert('Gagal memuat data statistik.', 'danger');
+            if (!result.success || !Array.isArray(result.data)) {
+                console.error("API did not return successful data or data is not an array:", result);
+                showAlert('Gagal memuat data statistik penyewa (data tidak valid).', 'danger');
                 return;
             }
-            let allRentals = result.data;
+            allRentals = result.data;
+        } catch (error) {
+            console.error("Error fetching or parsing rental data:", error);
+            showAlert('Gagal mengambil data penyewa dari server.', 'danger');
+            return;
+        }
+        // --- End Fetch data ---
 
-            // Filter data based on period
-            const now = new Date();
-            const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        // --- Filtering ---
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-            let filteredRentals = allRentals;
-            if (filter === 'weekly') {
-                filteredRentals = allRentals.filter(r => new Date(r.tanggal_checkin) >= oneWeekAgo);
-            } else if (filter === 'monthly') {
-                filteredRentals = allRentals.filter(r => new Date(r.tanggal_checkin) >= firstDayOfMonth);
-            }
+        let filteredRentals = []; // Initialize as empty array
+        try {
+             filteredRentals = allRentals.filter(r => {
+                if (!r || !r.tanggal_checkin) return false; // Basic check first
+                const checkinDate = new Date(r.tanggal_checkin);
+                if (isNaN(checkinDate)) return false; // Check if date is valid
 
-            // --- 1. Rented Units per Period (Line Chart) ---
-            const rentalCounts = filteredRentals.reduce((acc, rental) => {
+                if (filter === 'weekly') {
+                    return checkinDate >= oneWeekAgo;
+                } else if (filter === 'monthly') {
+                    return checkinDate >= firstDayOfMonth;
+                }
+                return true; // 'all' filter
+            });
+        } catch (filterError) {
+             console.error("Error during filtering rentals:", filterError);
+             showAlert("Terjadi kesalahan saat memfilter data.", "danger");
+             filteredRentals = []; // Ensure it's an array on error
+        }
+        // --- End Filtering ---
+
+        // --- 1. Rented Units per Period (Line Chart) ---
+        let rentalCounts = {};
+        let sortedDates = []; // Initialize sortedDates here
+        try {
+            rentalCounts = filteredRentals.reduce((acc, rental) => {
+                // We already checked tanggal_checkin validity during filter
                 const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
                 acc[date] = (acc[date] || 0) + 1;
                 return acc;
             }, {});
-            const sortedDates = Object.keys(rentalCounts).sort();
-            const chartLabels = sortedDates;
-            const chartData = sortedDates.map(date => rentalCounts[date]);
+            // Check if rentalCounts is actually an object before getting keys
+            if (rentalCounts && typeof rentalCounts === 'object') {
+                 sortedDates = Object.keys(rentalCounts).sort();
+            } else {
+                 console.error("rentalCounts is not an object after reduce:", rentalCounts);
+                 rentalCounts = {}; // Reset just in case
+            }
+        } catch (reduceError) {
+            console.error("Error during rentalCounts reduce:", reduceError);
+            rentalCounts = {};
+            sortedDates = [];
+        }
 
-            rentedUnitsChart = new Chart(document.getElementById('rentedUnitsChart'), {
-                type: 'line',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: 'Jumlah Unit Disewakan',
-                        data: chartData,
-                        borderColor: 'rgb(75, 192, 192)',
-                        tension: 0.1
-                    }]
-                }
-            });
+        const chartLabels = sortedDates; // Use the (potentially empty) sortedDates
+        const chartData = sortedDates.map(date => rentalCounts[date] || 0); // Add fallback for safety
 
-            // --- 2. Top 5 Popular Units (Bar Chart) ---
-            const unitPopularity = filteredRentals.reduce((acc, rental) => {
-                const unitId = `${rental.tower}-${rental.lantai}-${rental.unit}`;
-                const agent = rental.email_agent;
-                if (!acc[unitId]) {
-                    acc[unitId] = { count: 0, agent: agent };
+        try {
+            const rentedUnitsCanvas = document.getElementById('rentedUnitsChart');
+            if(rentedUnitsCanvas) { // Check if canvas exists
+                 rentedUnitsChart = new Chart(rentedUnitsCanvas, {
+                    type: 'line',
+                    data: { labels: chartLabels, datasets: [{ label: 'Jumlah Unit Disewakan', data: chartData, borderColor: 'rgb(75, 192, 192)', tension: 0.1 }] }
+                });
+            } else {
+                 console.warn("Canvas 'rentedUnitsChart' not found.");
+            }
+        } catch (chartError) {
+            console.error("Error creating rentedUnitsChart:", chartError);
+            showAlert("Gagal membuat grafik jumlah unit.", "danger");
+        }
+
+
+        // --- 2. Top 5 Popular Units (Bar Chart) ---
+        let unitPopularity = {};
+        try {
+            unitPopularity = filteredRentals.reduce((acc, rental) => {
+                if (rental && rental.tower && rental.lantai && rental.unit) {
+                    const unitId = `${rental.tower}-${rental.lantai}-${rental.unit}`;
+                    const agent = rental.email_agent;
+                    if (!acc[unitId]) {
+                        acc[unitId] = { count: 0, agent: agent };
+                    }
+                    acc[unitId].count++;
                 }
-                acc[unitId].count++;
                 return acc;
             }, {});
-            const top5Units = Object.entries(unitPopularity)
-                .sort(([, a], [, b]) => b.count - a.count)
-                .slice(0, 5);
-            
-            topUnitsChart = new Chart(document.getElementById('topUnitsChart'), {
-                type: 'bar',
-                data: {
-                    labels: top5Units.map(([unitId]) => unitId),
-                    datasets: [{
-                        label: 'Jumlah Sewa',
-                        data: top5Units.map(([, data]) => data.count),
-                        backgroundColor: 'rgba(255, 159, 64, 0.5)'
-                    }]
-                },
-                options: { indexAxis: 'y' }
-            });
+        } catch (reduceError) {
+            console.error("Error during unitPopularity reduce:", reduceError);
+            unitPopularity = {};
+        }
 
-            // --- 3. Admin-Specific Charts ---
-            if (isAdmin) {
-                // Rentals by Agent (Line)
-                const rentalsByAgent = filteredRentals.reduce((acc, rental) => {
+        const top5Units = Object.entries(unitPopularity).sort(([, a], [, b]) => b.count - a.count).slice(0, 5);
+
+        try {
+            const topUnitsCanvas = document.getElementById('topUnitsChart');
+            if(topUnitsCanvas){ // Check if canvas exists
+                 topUnitsChart = new Chart(topUnitsCanvas, {
+                    type: 'bar',
+                    data: { labels: top5Units.map(([unitId]) => unitId), datasets: [{ label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(255, 159, 64, 0.5)' }] },
+                    options: { indexAxis: 'y' }
+                });
+            } else {
+                 console.warn("Canvas 'topUnitsChart' not found.");
+            }
+        } catch (chartError) {
+            console.error("Error creating topUnitsChart:", chartError);
+            showAlert("Gagal membuat grafik unit populer.", "danger");
+        }
+
+
+        // --- 3. Admin-Specific Charts ---
+        if (isAdmin) {
+            adminStatsContainer.style.display = 'block';
+
+            // Rentals by Agent (Line)
+            let rentalsByAgent = {};
+            try {
+                rentalsByAgent = filteredRentals.reduce((acc, rental) => {
+                    // Dates already validated
                     const agent = rental.email_agent || 'Unknown';
                     const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
                     if (!acc[agent]) acc[agent] = {};
                     acc[agent][date] = (acc[agent][date] || 0) + 1;
                     return acc;
                 }, {});
-
-                const agentColors = ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff'];
-                const agentDatasets = Object.keys(rentalsByAgent).map((agent, index) => {
-                    const agentData = sortedDates.map(date => rentalsByAgent[agent][date] || 0);
-                    return {
-                        label: agent,
-                        data: agentData,
-                        borderColor: agentColors[index % agentColors.length],
-                        tension: 0.1,
-                        hidden: index >= 5 // Optionally hide agents beyond the top 5 for clarity
-                    };
-                });
-
-                rentedUnitsByAgentChart = new Chart(document.getElementById('rentedUnitsByAgentChart'), {
-                    type: 'line',
-                    data: {
-                        labels: sortedDates,
-                        datasets: agentDatasets
-                    }
-                });
-
-                // Top 5 Units with Agent Info (Bar)
-                topUnitsByAgentChart = new Chart(document.getElementById('topUnitsByAgentChart'), {
-                    type: 'bar',
-                    data: {
-                        labels: top5Units.map(([unitId, data]) => `${unitId} (${data.agent})`),
-                        datasets: [{
-                            label: 'Jumlah Sewa',
-                            data: top5Units.map(([, data]) => data.count),
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)'
-                        }]
-                    },
-                    options: { indexAxis: 'y' }
-                });
+            } catch(reduceError) {
+                console.error("Error during rentalsByAgent reduce:", reduceError);
+                rentalsByAgent = {};
             }
+
+            const agentColors = ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff'];
+            // Use sortedDates from the first chart calculation
+            const agentDatasets = Object.keys(rentalsByAgent).map((agent, index) => {
+                const agentData = sortedDates.map(date => (rentalsByAgent[agent] && rentalsByAgent[agent][date]) ? rentalsByAgent[agent][date] : 0);
+                return {
+                    label: agent, data: agentData, borderColor: agentColors[index % agentColors.length], tension: 0.1, hidden: index >= 5
+                };
+            });
+
+            try {
+                 const rentedUnitsByAgentCanvas = document.getElementById('rentedUnitsByAgentChart');
+                 if(rentedUnitsByAgentCanvas) { // Check canvas exists
+                      rentedUnitsByAgentChart = new Chart(rentedUnitsByAgentCanvas, {
+                         type: 'line',
+                         data: { labels: sortedDates, datasets: agentDatasets }
+                     });
+                 } else {
+                     console.warn("Canvas 'rentedUnitsByAgentChart' not found.");
+                 }
+            } catch (chartError) {
+                console.error("Error creating rentedUnitsByAgentChart:", chartError);
+                showAlert("Gagal membuat grafik unit per agen.", "danger");
+            }
+
+            // Top 5 Units with Agent Info (Bar)
+            const topUnitsByAgentCanvas = document.getElementById('topUnitsByAgentChart');
+            if (topUnitsByAgentCanvas) {
+                try {
+                     topUnitsByAgentChart = new Chart(topUnitsByAgentCanvas, {
+                        type: 'bar',
+                        data: {
+                            labels: top5Units.map(([unitId, data]) => `${unitId} (${data.agent || 'N/A'})`),
+                            datasets: [{
+                                label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                            }]
+                        },
+                        options: { indexAxis: 'y' }
+                    });
+                } catch (chartError) {
+                     console.error("Error creating topUnitsByAgentChart:", chartError);
+                     showAlert("Gagal membuat grafik top unit per agen.", "danger");
+                }
+            } else {
+                 // Warning already logged before, no need to repeat
+            }
+
+        } else {
+            adminStatsContainer.style.display = 'none';
         }
+    }
 
         // Function to display violation photos directly and hide uploader for agents
         async function loadDashboardViolations() {
@@ -923,10 +1008,10 @@
         }
 
         async function loadMyUnitsForInput() {
-            const select = document.getElementById('unit-select');
-            select.innerHTML = '<option value="">Memuat unit...</option>';
-            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
-            const url = isAdmin ? '/api/all-units' : '/api/my-units';
+            const select = document.getElementById('unit-select');
+            select.innerHTML = '<option value="">Memuat unit...</option>';
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            const url = isAdmin ? '/api/all-units' : '/api/my-units';
 
             try {
                 const response = await fetch(url);
@@ -934,12 +1019,16 @@
                 if(result.success) {
                     select.innerHTML = '<option value="">-- Pilih Unit --</option>';
                     result.data.forEach(u => {
-                        // For admins, show which agent owns the unit
-                        const displayText = isAdmin 
-                            ? `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor} (Agen: ${u.agent_email})`
-                            : `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor}`;
+                        let displayText = isAdmin 
+                            ? `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor} (Agen: ${u.agent_email})`
+                            : `Tower ${u.unit_tower} - Lt ${u.unit_lantai} - No ${u.unit_nomor}`;
                         
-                        select.innerHTML += `<option value="${u.unit_tower}|${u.unit_lantai}|${u.unit_nomor}">${displayText}</option>`;
+                        let isDisabled = u.is_occupied;
+                        if (isDisabled) {
+                            displayText += ' (Sedang Disewa)';
+                        }
+                        
+                        select.innerHTML += `<option value="${u.unit_tower}|${u.unit_lantai}|${u.unit_nomor}" ${isDisabled ? 'disabled' : ''}>${displayText}</option>`;
                     });
                 } else {
                     select.innerHTML = `<option value="">Gagal memuat unit: ${result.message}</option>`;
@@ -947,7 +1036,7 @@
             } catch (error) {
                 select.innerHTML = '<option value="">Error saat memuat data</option>';
             }
-        }
+        }
 
         function populateUnitFields() {
             const selectedUnit = document.getElementById('unit-select').value;

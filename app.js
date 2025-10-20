@@ -525,6 +525,21 @@ app.delete('/api/dashboard/violations/:id', checkAdmin, async (req, res) => {
 
 
 // ================== MANAJEMEN UNIT ==================
+async function getOccupiedUnits() {
+    try {
+        // A unit is occupied if its checkout date is today or in the future.
+        const [occupied] = await pool.query(
+            "SELECT DISTINCT CONCAT(tower, '-', lantai, '-', unit) as unit_string FROM rentals WHERE tanggal_checkout >= CURDATE()"
+        );
+        // Return a Set for fast O(1) lookups
+        return new Set(occupied.map(r => r.unit_string));
+    } catch (error) {
+        console.error("Error fetching occupied units:", error);
+        return new Set(); // Return an empty set on error
+    }
+}
+
+
 async function getAgentIdByEmail(email) {
     const conn = await pool.getConnection();
     try {
@@ -591,41 +606,59 @@ app.delete('/api/units/:unitId', checkAdmin, async (req, res) => {
 });
 
 app.get('/api/my-units', checkAuth, async(req, res) => {
-    try {
-        const agentId = await getAgentIdByEmail(req.session.user.email);
-        if (!agentId) return res.json({ success: true, data: [] });
-        const [units] = await pool.query("SELECT id, unit_number FROM units WHERE agent_id = ?", [agentId]);
-        const formattedUnits = units.map(u => ({
-            id: u.id,
-            ...parseUnitNumber(u.unit_number)
-        }));
-        res.json({ success: true, data: formattedUnits });
-    } catch (error) {
-        res.status(500).json({ success: false, message: 'Gagal memuat unit Anda.' });
-    }
+    try {
+        const agentId = await getAgentIdByEmail(req.session.user.email);
+        if (!agentId) return res.json({ success: true, data: [] });
+        
+        const occupiedUnitsSet = await getOccupiedUnits();
+
+        const [units] = await pool.query("SELECT id, unit_number FROM units WHERE agent_id = ?", [agentId]);
+        const formattedUnits = units.map(u => {
+            
+            const unitParts = parseUnitNumber(u.unit_number);
+            const unitString = `${unitParts.unit_tower}-${unitParts.unit_lantai}-${unitParts.unit_nomor}`;
+            return {
+                id: u.id,
+                ...unitParts,
+                is_occupied: occupiedUnitsSet.has(unitString)
+            };
+            
+        });
+        res.json({ success: true, data: formattedUnits });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal memuat unit Anda.' });
+    }
 });
 
 
 // Get all units for admin roles
 app.get('/api/all-units', checkAdmin, async (req, res) => {
-    try {
-        const query = `
-            SELECT u.id, u.unit_number, us.email as agent_email 
-            FROM units u
-            JOIN users us ON u.agent_id = us.agent_id
-            ORDER BY us.email, u.unit_number
-        `;
-        const [units] = await pool.query(query);
-        const formattedUnits = units.map(u => ({
-            id: u.id,
-            ...parseUnitNumber(u.unit_number),
-            agent_email: u.agent_email
-        }));
-        res.json({ success: true, data: formattedUnits });
-    } catch (error) {
-        console.error("Error fetching all units:", error);
-        res.status(500).json({ success: false, message: 'Gagal memuat semua unit.' });
-    }
+    try {
+        const occupiedUnitsSet = await getOccupiedUnits();
+
+        // --- THIS IS THE FIX ---
+        const query = 'SELECT u.id, u.unit_number, us.email as agent_email ' +
+                    'FROM units u ' +
+                    'JOIN users us ON u.agent_id = us.agent_id ' +
+                    'ORDER BY us.email, u.unit_number';
+        // --- END OF FIX ---
+
+        const [units] = await pool.query(query);
+        const formattedUnits = units.map(u => {
+            const unitParts = parseUnitNumber(u.unit_number);
+            const unitString = `${unitParts.unit_tower}-${unitParts.unit_lantai}-${unitParts.unit_nomor}`;
+            return {
+                id: u.id,
+                ...unitParts,
+                agent_email: u.agent_email,
+                is_occupied: occupiedUnitsSet.has(unitString)
+            };
+        });
+        res.json({ success: true, data: formattedUnits });
+    } catch (error) {
+        console.error("Error fetching all units:", error);
+        res.status(500).json({ success: false, message: 'Gagal memuat semua unit.' });
+    }
 });
 
 // Helper function to calculate duration
