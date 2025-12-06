@@ -49,6 +49,40 @@
         .admin-only { display: none; }
         .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px; }
         .dashboard-card { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; }
+    
+
+        .pagination-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .pagination-container button {
+            margin: 2px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+        }
+        .pagination-container button.active {
+            background-color: #0056b3; /* Warna aktif */
+            font-weight: bold;
+        }
+        .pagination-container button:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.65;
+        }
+        .pagination-container .pagination-info {
+            margin-left: 15px;
+            font-size: 0.9em;
+            color: #555;
+            vertical-align: middle;
+        }
+        .pagination-container span.page-ellipsis {
+            display: inline-block;
+            padding: 8px;
+            margin: 2px;
+            color: #6c757d;
+            vertical-align: middle;
+        }
     </style>
 </head>
 <body>
@@ -130,15 +164,19 @@
                             <button onclick="loadRentalsData(true)" style="flex: 1; margin: 0;">🔄 Refresh Tabel</button>
                         </div>
                         <div class="admin-only" style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="comment-filter" onchange="loadRentalsData()" style="width: auto; margin: 0;">
+                            <input type="checkbox" id="comment-filter" onchange="loadRentalsData('default', true)" style="width: auto; margin: 0;">
                             
-                            <label for="comment-filter" style="margin: 0; font-weight: normal; white-space: nowrap;">Tampilkan yg data dengan pelanggaran saja</label>
+                            <label for="comment-filter" style="margin: 0; font-weight: normal; white-space: nowrap;">Tampilkan data dengan pelanggaran saja</label>
                             </div>
                     </div>
                     <div id="rentals-table" style="overflow-x: auto;"></div>
                     <hr>
+                    <div id="pagination-controls-top" class="pagination-container"></div>
+                    <div id="rentals-table" style="overflow-x: auto;"></div>
+                    <hr>
                     <h3>📝 Edit Data Penyewa</h3>
                     <div id="rentals-expanders"></div>
+                    <div id="pagination-controls-bottom" class="pagination-container"></div>
                 </div>
 
                 <div id="dashboard-section" class="page-content">
@@ -241,7 +279,11 @@
 
     <script>
         let currentUser = null;
-        let rentalsData = [];
+        // let rentalsData = [];
+
+        let currentPage = 1;
+        const itemsPerPage = 10; // Tetap gunakan ini untuk memberi tahu server
+        let currentViewMode = 'default'; // Lacak mode (default vs duplicates)
         // Chart variables
         let rentedUnitsChart, topUnitsChart, rentedUnitsByAgentChart, topUnitsByAgentChart;
 
@@ -345,7 +387,7 @@
                 initializeDateTime();
                 loadMyUnitsForInput();
             }
-            if (pageId === 'view-data-section') loadRentalsData();
+            if (pageId === 'view-data-section') loadRentalsData('default', true);
             if (pageId === 'dashboard-section') loadDashboardData();
             if (pageId === 'unit-management-section') loadAgentsForManagement();
         }
@@ -465,36 +507,88 @@
             }
         }
         
-        async function loadRentalsData(isRefresh = false, customData = null) {
+        async function loadRentalsData(mode = 'default', isRefresh = false) {
+            if (isRefresh) {
+                currentPage = 1;
+            }
+            
+            // Simpan mode saat ini untuk digunakan oleh tombol 'changePage'
+            currentViewMode = mode; 
+
             const tableContainer = document.getElementById('rentals-table');
             const expandersContainer = document.getElementById('rentals-expanders');
+            const paginationTop = document.getElementById('pagination-controls-top');
+            const paginationBottom = document.getElementById('pagination-controls-bottom');
+
             tableContainer.innerHTML = '<p>Memuat data...</p>';
             expandersContainer.innerHTML = '';
-            
-            let dataToDisplay;
-            if (customData) {
-                dataToDisplay = customData;
-            } else {
-                const response = await fetch('/api/rentals');
-                const result = await response.json();
-                if (!result.success) { showAlert(result.message, 'danger'); return; }
-                rentalsData = result.data;
+            paginationTop.innerHTML = '';
+            paginationBottom.innerHTML = '';
+
+            // --- 1. Buat URL berdasarkan mode & filter ---
+            let baseUrl;
+            let queryParams = new URLSearchParams();
+            queryParams.append('page', currentPage);
+            queryParams.append('limit', itemsPerPage);
+
+            if (mode === 'default') {
+                baseUrl = '/api/rentals';
                 const commentFilter = document.getElementById('comment-filter').checked;
-                dataToDisplay = commentFilter ? rentalsData.filter(r => r.komentar && r.komentar.length > 0) : rentalsData;
+                queryParams.append('commentFilter', commentFilter);
+            } else if (mode === 'duplicates') {
+                baseUrl = '/api/rentals/duplicates';
+            } else {
+                tableContainer.innerHTML = '<p>Mode tampilan tidak valid.</p>';
+                return;
             }
 
-            if (dataToDisplay.length === 0) {
+            const url = `${baseUrl}?${queryParams.toString()}`;
+
+            // --- 2. Ambil data dari Server ---
+            let responseData;
+            let paginationData;
+
+            try {
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showAlert(result.message, 'danger');
+                    tableContainer.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
+                    return;
+                }
+
+                responseData = result.data;
+                paginationData = result.pagination;
+
+                if (mode === 'duplicates' && responseData.length > 0) {
+                    showAlert(`Ditemukan ${paginationData.totalItems} data dengan NIK ganda.`, 'info');
+                }
+
+            } catch (error) {
+                console.error('Error loading rental data:', error);
+                showAlert('Gagal terhubung ke server untuk memuat data.', 'danger');
+                tableContainer.innerHTML = '<div class="alert alert-danger">Gagal memuat data.</div>';
+                return;
+            }
+
+            // --- 3. Render ---
+            if (responseData.length === 0) {
                 tableContainer.innerHTML = '<div class="alert alert-info">Tidak ada data.</div>';
                 return;
             }
-            
+
+            // Render Paginasi (panggil SEBELUM render tabel/expander)
+            renderPagination(paginationData.totalItems, paginationData.totalPages, paginationData.page);
+
+            // --- 4. Render Tabel ---
             let tableHTML = `<table class="table"><thead><tr>
-                <th>NIK</th><th>Nama</th><th>Status Perkawinan</th><th>Unit</th><th>Jenis Sewa</th>
+                <th>NIK</th><th>Nama</th><th>Kewarganegaraan</th><th>Status Perkawinan</th><th>Unit</th><th>Jenis Sewa</th>
                 <th>Metode Pembayaran</th><th>Tgl Check In</th><th>Tgl Check Out</th><th>Lama (Hari)</th>
                 <th>Komentar</th><th>Email Agen</th><th>Diedit Oleh</th><th>Log</th>
             </tr></thead><tbody>`;
 
-            dataToDisplay.forEach(r => {
+            responseData.forEach(r => {
                 let paymentMethod = r.metode_pembayaran;
                 if (paymentMethod === 'Others' && r.metode_lain) {
                     paymentMethod = `Others (${r.metode_lain})`;
@@ -505,6 +599,7 @@
                 tableHTML += `<tr>
                     <td>${r.nik || ''}</td>
                     <td>${r.nama || ''}</td>
+                    <td>${r.status_kewarganegaraan || ''}</td>
                     <td>${r.status_pasutri || ''}</td>
                     <td>${r.tower}-${r.lantai}-${r.unit}</td>
                     <td>${r.jenis_sewa || ''}</td>
@@ -525,36 +620,39 @@
             tableHTML += '</tbody></table>';
             tableContainer.innerHTML = tableHTML;
             
+            // --- 5. Render Expanders ---
             const pelanggaranList = await fetch('/api/pelanggaran-list').then(res => res.json()).then(d => d.data);
             let expandersHTML = '';
-            dataToDisplay.forEach((r) => {
-                expandersHTML += `<div class="expander" style="border: 1px solid #ddd; margin-bottom: 10px;">
-                    <div class="expander-header" style="padding: 10px; background: #f0f0f0; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
-                        ${r.nama} (Unit ${r.tower}-${r.lantai}-${r.unit})
-                    </div>
-                    <div class="expander-content hidden" style="padding: 15px;">
-                        <div class="form-group"><label>Jenis Sewa</label><select id="edit_jenis_sewa_${r.id}">${['Harian','Mingguan','Bulanan'].map(o => `<option value="${o}" ${r.jenis_sewa === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
-                        <div class="form-group"><label>Metode Pembayaran</label><select id="edit_metode_pembayaran_${r.id}">${['Cash','Kartu Kredit','Kartu Debit','QRIS','Others'].map(o => `<option value="${o}" ${r.metode_pembayaran === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
-                        <div class="form-group"><label>Waktu Check-Out</label><input type="time" id="edit_waktu_checkout_${r.id}" value="${r.waktu_checkout || ''}"></div>
-                            
-                                                    <div class="form-group">
-                                <label>Komentar</label>
-                                <div>${pelanggaranList.map(p => {
-                                    const checkboxId = `cb-${r.id}-${p.replace(/[^a-zA-Z0-9]/g, '-')}`; 
-                                    return `
-                                        <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                                            <input type="checkbox" id="${checkboxId}" class="komentar-cb-${r.id}" value="${p}" ${(r.komentar || []).includes(p) ? 'checked' : ''} style="width: auto; margin-right: 8px;">
-                                            <label for="${checkboxId}" style="font-weight: normal; margin-bottom: 0; display: inline;">${p}</label>
-                                        </div>
-                                    `;
-                                }).join('')}</div>
-                            </div>
-                            <div style="text-align: left;">
-                                <button class="btn-success" onclick="updateRental(${r.id})">Simpan Perubahan</button>
-                            </div>
-                    </div>
-                </div>`;
-            });
+            
+            responseData.forEach((r) => {
+                // ... (Logika pembuatan expanderHTML tetap sama seperti sebelumnya) ...
+                expandersHTML += `<div class="expander" style="border: 1px solid #ddd; margin-bottom: 10px;">
+                    <div class="expander-header" style="padding: 10px; background: #f0f0f0; cursor: pointer;" onclick="this.nextElementSibling.classList.toggle('hidden')">
+                        ${r.nama} (Unit ${r.tower}-${r.lantai}-${r.unit})
+                    </div>
+                    <div class="expander-content hidden" style="padding: 15px;">
+                        <div class="form-group"><label>Jenis Sewa</label><select id="edit_jenis_sewa_${r.id}">${['Harian','Mingguan','Bulanan'].map(o => `<option value="${o}" ${r.jenis_sewa === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+                        <div class="form-group"><label>Metode Pembayaran</label><select id="edit_metode_pembayaran_${r.id}">${['Cash','Kartu Kredit','Kartu Debit','QRIS','Others'].map(o => `<option value="${o}" ${r.metode_pembayaran === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>
+                        <div class="form-group"><label>Waktu Check-Out</label><input type="time" id="edit_waktu_checkout_${r.id}" value="${r.waktu_checkout || ''}"></div>
+                        
+                        <div class="form-group">
+                            <label>Komentar</label>
+                            <div>${pelanggaranList.map(p => {
+                                const checkboxId = `cb-${r.id}-${p.replace(/[^a-zA-Z0-9]/g, '-')}`; 
+                                return `
+                                    <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                                        <input type="checkbox" id="${checkboxId}" class="komentar-cb-${r.id}" value="${p}" ${(r.komentar || []).includes(p) ? 'checked' : ''} style="width: auto; margin-right: 8px;">
+                                        <label for="${checkboxId}" style="font-weight: normal; margin-bottom: 0; display: inline;">${p}</label>
+                                    </div>
+                                `;
+                            }).join('')}</div>
+                        </div>
+                        <div style="text-align: left;">
+                            <button class="btn-success" onclick="updateRental(${r.id})">Simpan Perubahan</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
             expandersContainer.innerHTML = expandersHTML;
         }
 
@@ -579,6 +677,7 @@
             showAlert('Mencari data duplikat...', 'info');
             const response = await fetch('/api/rentals/duplicates');
             const result = await response.json();
+            await loadRentalsData('duplicates', true);
             if (result.success) {
                 if(result.data.length > 0) {
                     showAlert(`Ditemukan ${result.data.length} data dengan NIK ganda. Menampilkan hasil.`, 'info');
@@ -648,215 +747,331 @@
             }
         }
 
+    //     async function loadDashboardStats() {
+    //         const filter = document.getElementById('stats-filter').value;
+    //         const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+    //         const adminStatsContainer = document.getElementById('admin-stats-container');
+
+    //         // Destroy existing charts
+    //         if (rentedUnitsChart) rentedUnitsChart.destroy();
+    //         if (topUnitsChart) topUnitsChart.destroy();
+    //         if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
+    //         if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
+
+    //         let allRentals = [];
+
+    //         // --- Fetch data ---
+    //         try {
+    //             const response = await fetch('/api/rentals');
+    //             if (!response.ok) {
+    //                 throw new Error(`HTTP error! status: ${response.status}`);
+    //             }
+    //             const result = await response.json();
+    //             if (!result.success || !Array.isArray(result.data)) {
+    //                 console.error("API did not return successful data or data is not an array:", result);
+    //                 showAlert('Gagal memuat data statistik penyewa (data tidak valid).', 'danger');
+    //                 return;
+    //             }
+    //             allRentals = result.data;
+    //         } catch (error) {
+    //             console.error("Error fetching or parsing rental data:", error);
+    //             showAlert('Gagal mengambil data penyewa dari server.', 'danger');
+    //             return;
+    //         }
+    //         // --- End Fetch data ---
+
+    //         // --- Filtering ---
+    //         const now = new Date();
+    //         const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    //         const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    //         let filteredRentals = []; // Initialize as empty array
+    //         try {
+    //             filteredRentals = allRentals.filter(r => {
+    //                 if (!r || !r.tanggal_checkin) return false; // Basic check first
+    //                 const checkinDate = new Date(r.tanggal_checkin);
+    //                 if (isNaN(checkinDate)) return false; // Check if date is valid
+
+    //                 if (filter === 'weekly') {
+    //                     return checkinDate >= oneWeekAgo;
+    //                 } else if (filter === 'monthly') {
+    //                     return checkinDate >= firstDayOfMonth;
+    //                 }
+    //                 return true; // 'all' filter
+    //             });
+    //         } catch (filterError) {
+    //             console.error("Error during filtering rentals:", filterError);
+    //             showAlert("Terjadi kesalahan saat memfilter data.", "danger");
+    //             filteredRentals = []; // Ensure it's an array on error
+    //         }
+    //         // --- End Filtering ---
+
+    //         // --- 1. Rented Units per Period (Line Chart) ---
+    //         let rentalCounts = {};
+    //         let sortedDates = []; // Initialize sortedDates here
+    //         try {
+    //             rentalCounts = filteredRentals.reduce((acc, rental) => {
+    //                 // We already checked tanggal_checkin validity during filter
+    //                 const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
+    //                 acc[date] = (acc[date] || 0) + 1;
+    //                 return acc;
+    //             }, {});
+    //             // Check if rentalCounts is actually an object before getting keys
+    //             if (rentalCounts && typeof rentalCounts === 'object') {
+    //                 sortedDates = Object.keys(rentalCounts).sort();
+    //             } else {
+    //                 console.error("rentalCounts is not an object after reduce:", rentalCounts);
+    //                 rentalCounts = {}; // Reset just in case
+    //             }
+    //         } catch (reduceError) {
+    //             console.error("Error during rentalCounts reduce:", reduceError);
+    //             rentalCounts = {};
+    //             sortedDates = [];
+    //         }
+
+    //         const chartLabels = sortedDates; // Use the (potentially empty) sortedDates
+    //         const chartData = sortedDates.map(date => rentalCounts[date] || 0); // Add fallback for safety
+
+    //         try {
+    //             const rentedUnitsCanvas = document.getElementById('rentedUnitsChart');
+    //             if(rentedUnitsCanvas) { // Check if canvas exists
+    //                 rentedUnitsChart = new Chart(rentedUnitsCanvas, {
+    //                     type: 'line',
+    //                     data: { labels: chartLabels, datasets: [{ label: 'Jumlah Unit Disewakan', data: chartData, borderColor: 'rgb(75, 192, 192)', tension: 0.1 }] }
+    //                 });
+    //             } else {
+    //                 console.warn("Canvas 'rentedUnitsChart' not found.");
+    //             }
+    //         } catch (chartError) {
+    //             console.error("Error creating rentedUnitsChart:", chartError);
+    //             showAlert("Gagal membuat grafik jumlah unit.", "danger");
+    //         }
+
+
+    //         // --- 2. Top 5 Popular Units (Bar Chart) ---
+    //         let unitPopularity = {};
+    //         try {
+    //             unitPopularity = filteredRentals.reduce((acc, rental) => {
+    //                 if (rental && rental.tower && rental.lantai && rental.unit) {
+    //                     const unitId = `${rental.tower}-${rental.lantai}-${rental.unit}`;
+    //                     const agent = rental.email_agent;
+    //                     if (!acc[unitId]) {
+    //                         acc[unitId] = { count: 0, agent: agent };
+    //                     }
+    //                     acc[unitId].count++;
+    //                 }
+    //                 return acc;
+    //             }, {});
+    //         } catch (reduceError) {
+    //             console.error("Error during unitPopularity reduce:", reduceError);
+    //             unitPopularity = {};
+    //         }
+
+    //         const top5Units = Object.entries(unitPopularity).sort(([, a], [, b]) => b.count - a.count).slice(0, 5);
+
+    //         try {
+    //             const topUnitsCanvas = document.getElementById('topUnitsChart');
+    //             if(topUnitsCanvas){ // Check if canvas exists
+    //                 topUnitsChart = new Chart(topUnitsCanvas, {
+    //                     type: 'bar',
+    //                     data: { labels: top5Units.map(([unitId]) => unitId), datasets: [{ label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(255, 159, 64, 0.5)' }] },
+    //                     options: { indexAxis: 'y' }
+    //                 });
+    //             } else {
+    //                 console.warn("Canvas 'topUnitsChart' not found.");
+    //             }
+    //         } catch (chartError) {
+    //             console.error("Error creating topUnitsChart:", chartError);
+    //             showAlert("Gagal membuat grafik unit populer.", "danger");
+    //         }
+
+
+    //         // --- 3. Admin-Specific Charts ---
+    //         if (isAdmin) {
+    //             adminStatsContainer.style.display = 'block';
+
+    //             // Rentals by Agent (Line)
+    //             let rentalsByAgent = {};
+    //             try {
+    //                 rentalsByAgent = filteredRentals.reduce((acc, rental) => {
+    //                     // Dates already validated
+    //                     const agent = rental.email_agent || 'Unknown';
+    //                     const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
+    //                     if (!acc[agent]) acc[agent] = {};
+    //                     acc[agent][date] = (acc[agent][date] || 0) + 1;
+    //                     return acc;
+    //                 }, {});
+    //             } catch(reduceError) {
+    //                 console.error("Error during rentalsByAgent reduce:", reduceError);
+    //                 rentalsByAgent = {};
+    //             }
+
+    //             const agentColors = ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff'];
+    //             // Use sortedDates from the first chart calculation
+    //             const agentDatasets = Object.keys(rentalsByAgent).map((agent, index) => {
+    //                 const agentData = sortedDates.map(date => (rentalsByAgent[agent] && rentalsByAgent[agent][date]) ? rentalsByAgent[agent][date] : 0);
+    //                 return {
+    //                     label: agent, data: agentData, borderColor: agentColors[index % agentColors.length], tension: 0.1, hidden: index >= 5
+    //                 };
+    //             });
+
+    //             try {
+    //                 const rentedUnitsByAgentCanvas = document.getElementById('rentedUnitsByAgentChart');
+    //                 if(rentedUnitsByAgentCanvas) { // Check canvas exists
+    //                     rentedUnitsByAgentChart = new Chart(rentedUnitsByAgentCanvas, {
+    //                         type: 'line',
+    //                         data: { labels: sortedDates, datasets: agentDatasets }
+    //                     });
+    //                 } else {
+    //                     console.warn("Canvas 'rentedUnitsByAgentChart' not found.");
+    //                 }
+    //             } catch (chartError) {
+    //                 console.error("Error creating rentedUnitsByAgentChart:", chartError);
+    //                 showAlert("Gagal membuat grafik unit per agen.", "danger");
+    //             }
+
+    //             // Top 5 Units with Agent Info (Bar)
+    //             const topUnitsByAgentCanvas = document.getElementById('topUnitsByAgentChart');
+    //             if (topUnitsByAgentCanvas) {
+    //                 try {
+    //                     topUnitsByAgentChart = new Chart(topUnitsByAgentCanvas, {
+    //                         type: 'bar',
+    //                         data: {
+    //                             labels: top5Units.map(([unitId, data]) => `${unitId} (${data.agent || 'N/A'})`),
+    //                             datasets: [{
+    //                                 label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(54, 162, 235, 0.5)'
+    //                             }]
+    //                         },
+    //                         options: { indexAxis: 'y' }
+    //                     });
+    //                 } catch (chartError) {
+    //                     console.error("Error creating topUnitsByAgentChart:", chartError);
+    //                     showAlert("Gagal membuat grafik top unit per agen.", "danger");
+    //                 }
+    //             } else {
+    //                 // Warning already logged before, no need to repeat
+    //             }
+
+    //         } else {
+    //             adminStatsContainer.style.display = 'none';
+    //     }
+    // }
+
+
+    
         async function loadDashboardStats() {
-        const filter = document.getElementById('stats-filter').value;
-        const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
-        const adminStatsContainer = document.getElementById('admin-stats-container');
+            const filter = document.getElementById('stats-filter').value;
+            const isAdmin = ['ketua agen', 'p3srs', 'pkj'].includes(currentUser.role);
+            const adminStatsContainer = document.getElementById('admin-stats-container');
 
-        // Destroy existing charts
-        if (rentedUnitsChart) rentedUnitsChart.destroy();
-        if (topUnitsChart) topUnitsChart.destroy();
-        if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
-        if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
-
-        let allRentals = [];
-
-        // --- Fetch data ---
-        try {
-            const response = await fetch('/api/rentals');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const result = await response.json();
-            if (!result.success || !Array.isArray(result.data)) {
-                console.error("API did not return successful data or data is not an array:", result);
-                showAlert('Gagal memuat data statistik penyewa (data tidak valid).', 'danger');
-                return;
-            }
-            allRentals = result.data;
-        } catch (error) {
-            console.error("Error fetching or parsing rental data:", error);
-            showAlert('Gagal mengambil data penyewa dari server.', 'danger');
-            return;
-        }
-        // --- End Fetch data ---
-
-        // --- Filtering ---
-        const now = new Date();
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        let filteredRentals = []; // Initialize as empty array
-        try {
-             filteredRentals = allRentals.filter(r => {
-                if (!r || !r.tanggal_checkin) return false; // Basic check first
-                const checkinDate = new Date(r.tanggal_checkin);
-                if (isNaN(checkinDate)) return false; // Check if date is valid
-
-                if (filter === 'weekly') {
-                    return checkinDate >= oneWeekAgo;
-                } else if (filter === 'monthly') {
-                    return checkinDate >= firstDayOfMonth;
-                }
-                return true; // 'all' filter
-            });
-        } catch (filterError) {
-             console.error("Error during filtering rentals:", filterError);
-             showAlert("Terjadi kesalahan saat memfilter data.", "danger");
-             filteredRentals = []; // Ensure it's an array on error
-        }
-        // --- End Filtering ---
-
-        // --- 1. Rented Units per Period (Line Chart) ---
-        let rentalCounts = {};
-        let sortedDates = []; // Initialize sortedDates here
-        try {
-            rentalCounts = filteredRentals.reduce((acc, rental) => {
-                // We already checked tanggal_checkin validity during filter
-                const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
-                acc[date] = (acc[date] || 0) + 1;
-                return acc;
-            }, {});
-            // Check if rentalCounts is actually an object before getting keys
-            if (rentalCounts && typeof rentalCounts === 'object') {
-                 sortedDates = Object.keys(rentalCounts).sort();
-            } else {
-                 console.error("rentalCounts is not an object after reduce:", rentalCounts);
-                 rentalCounts = {}; // Reset just in case
-            }
-        } catch (reduceError) {
-            console.error("Error during rentalCounts reduce:", reduceError);
-            rentalCounts = {};
-            sortedDates = [];
-        }
-
-        const chartLabels = sortedDates; // Use the (potentially empty) sortedDates
-        const chartData = sortedDates.map(date => rentalCounts[date] || 0); // Add fallback for safety
-
-        try {
-            const rentedUnitsCanvas = document.getElementById('rentedUnitsChart');
-            if(rentedUnitsCanvas) { // Check if canvas exists
-                 rentedUnitsChart = new Chart(rentedUnitsCanvas, {
-                    type: 'line',
-                    data: { labels: chartLabels, datasets: [{ label: 'Jumlah Unit Disewakan', data: chartData, borderColor: 'rgb(75, 192, 192)', tension: 0.1 }] }
-                });
-            } else {
-                 console.warn("Canvas 'rentedUnitsChart' not found.");
-            }
-        } catch (chartError) {
-            console.error("Error creating rentedUnitsChart:", chartError);
-            showAlert("Gagal membuat grafik jumlah unit.", "danger");
-        }
-
-
-        // --- 2. Top 5 Popular Units (Bar Chart) ---
-        let unitPopularity = {};
-        try {
-            unitPopularity = filteredRentals.reduce((acc, rental) => {
-                if (rental && rental.tower && rental.lantai && rental.unit) {
-                    const unitId = `${rental.tower}-${rental.lantai}-${rental.unit}`;
-                    const agent = rental.email_agent;
-                    if (!acc[unitId]) {
-                        acc[unitId] = { count: 0, agent: agent };
-                    }
-                    acc[unitId].count++;
-                }
-                return acc;
-            }, {});
-        } catch (reduceError) {
-            console.error("Error during unitPopularity reduce:", reduceError);
-            unitPopularity = {};
-        }
-
-        const top5Units = Object.entries(unitPopularity).sort(([, a], [, b]) => b.count - a.count).slice(0, 5);
-
-        try {
-            const topUnitsCanvas = document.getElementById('topUnitsChart');
-            if(topUnitsCanvas){ // Check if canvas exists
-                 topUnitsChart = new Chart(topUnitsCanvas, {
-                    type: 'bar',
-                    data: { labels: top5Units.map(([unitId]) => unitId), datasets: [{ label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(255, 159, 64, 0.5)' }] },
-                    options: { indexAxis: 'y' }
-                });
-            } else {
-                 console.warn("Canvas 'topUnitsChart' not found.");
-            }
-        } catch (chartError) {
-            console.error("Error creating topUnitsChart:", chartError);
-            showAlert("Gagal membuat grafik unit populer.", "danger");
-        }
-
-
-        // --- 3. Admin-Specific Charts ---
-        if (isAdmin) {
-            adminStatsContainer.style.display = 'block';
-
-            // Rentals by Agent (Line)
-            let rentalsByAgent = {};
-            try {
-                rentalsByAgent = filteredRentals.reduce((acc, rental) => {
-                    // Dates already validated
-                    const agent = rental.email_agent || 'Unknown';
-                    const date = new Date(rental.tanggal_checkin).toISOString().split('T')[0];
-                    if (!acc[agent]) acc[agent] = {};
-                    acc[agent][date] = (acc[agent][date] || 0) + 1;
-                    return acc;
-                }, {});
-            } catch(reduceError) {
-                console.error("Error during rentalsByAgent reduce:", reduceError);
-                rentalsByAgent = {};
-            }
-
-            const agentColors = ['#36a2eb', '#ff6384', '#ffcd56', '#4bc0c0', '#9966ff'];
-            // Use sortedDates from the first chart calculation
-            const agentDatasets = Object.keys(rentalsByAgent).map((agent, index) => {
-                const agentData = sortedDates.map(date => (rentalsByAgent[agent] && rentalsByAgent[agent][date]) ? rentalsByAgent[agent][date] : 0);
-                return {
-                    label: agent, data: agentData, borderColor: agentColors[index % agentColors.length], tension: 0.1, hidden: index >= 5
-                };
-            });
+            // Hancurkan chart lama agar bisa digambar ulang
+            if (rentedUnitsChart) rentedUnitsChart.destroy();
+            if (topUnitsChart) topUnitsChart.destroy();
+            if (rentedUnitsByAgentChart) rentedUnitsByAgentChart.destroy();
+            if (topUnitsByAgentChart) topUnitsByAgentChart.destroy();
 
             try {
-                 const rentedUnitsByAgentCanvas = document.getElementById('rentedUnitsByAgentChart');
-                 if(rentedUnitsByAgentCanvas) { // Check canvas exists
-                      rentedUnitsByAgentChart = new Chart(rentedUnitsByAgentCanvas, {
-                         type: 'line',
-                         data: { labels: sortedDates, datasets: agentDatasets }
-                     });
-                 } else {
-                     console.warn("Canvas 'rentedUnitsByAgentChart' not found.");
-                 }
-            } catch (chartError) {
-                console.error("Error creating rentedUnitsByAgentChart:", chartError);
-                showAlert("Gagal membuat grafik unit per agen.", "danger");
-            }
+                // --- 1. Ambil Data Rangkuman (Server-Side) ---
+                // Kita panggil semua API rangkuman secara paralel agar lebih cepat
+                const [rentalsResponse, popularResponse, agentPerfResponse] = await Promise.all([
+                    fetch(`/api/dashboard/rentals-over-time?filter=${filter}`),
+                    fetch(`/api/dashboard/popular-units?filter=${filter}`),
+                    isAdmin ? fetch(`/api/dashboard/agent-performance?filter=${filter}`) : Promise.resolve(null) // Hanya panggil jika admin
+                ]);
 
-            // Top 5 Units with Agent Info (Bar)
-            const topUnitsByAgentCanvas = document.getElementById('topUnitsByAgentChart');
-            if (topUnitsByAgentCanvas) {
-                try {
-                     topUnitsByAgentChart = new Chart(topUnitsByAgentCanvas, {
+                // --- 2. Proses Chart 1: Jumlah Unit Disewakan (Line) ---
+                const rentData = await rentalsResponse.json();
+                if (rentData.success) {
+                    const rentedUnitsCanvas = document.getElementById('rentedUnitsChart');
+                    rentedUnitsChart = new Chart(rentedUnitsCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: rentData.labels, // Langsung pakai data dari server
+                            datasets: [{
+                                label: 'Jumlah Unit Disewakan',
+                                data: rentData.data, // Langsung pakai data dari server
+                                borderColor: 'rgb(75, 192, 192)',
+                                tension: 0.1
+                            }]
+                        }
+                    });
+                } else {
+                    showAlert('Gagal memuat statistik unit.', 'danger');
+                }
+
+                // --- 3. Proses Chart 2: Top 5 Unit Populer (Bar) ---
+                const popData = await popularResponse.json();
+                if (popData.success) {
+                    const topUnitsCanvas = document.getElementById('topUnitsChart');
+                    topUnitsChart = new Chart(topUnitsCanvas, {
                         type: 'bar',
                         data: {
-                            labels: top5Units.map(([unitId, data]) => `${unitId} (${data.agent || 'N/A'})`),
+                            labels: popData.labels, // Langsung pakai data dari server
                             datasets: [{
-                                label: 'Jumlah Sewa', data: top5Units.map(([, data]) => data.count), backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                                label: 'Jumlah Sewa',
+                                data: popData.data, // Langsung pakai data dari server
+                                backgroundColor: 'rgba(255, 159, 64, 0.5)'
                             }]
                         },
                         options: { indexAxis: 'y' }
                     });
-                } catch (chartError) {
-                     console.error("Error creating topUnitsByAgentChart:", chartError);
-                     showAlert("Gagal membuat grafik top unit per agen.", "danger");
+                } else {
+                    showAlert('Gagal memuat unit populer.', 'danger');
                 }
-            } else {
-                 // Warning already logged before, no need to repeat
-            }
 
-        } else {
-            adminStatsContainer.style.display = 'none';
+                // --- 4. Proses Chart Admin ---
+                if (isAdmin && agentPerfResponse) {
+                    adminStatsContainer.style.display = 'block';
+                    const agentPerfData = await agentPerfResponse.json();
+
+                    if (agentPerfData.success) {
+                        // Chart 3: Jumlah Sewa per Agen (Bar)
+                        // Kita gunakan data dari /agent-performance
+                        const agentLabels = agentPerfData.data.map(a => a.email_agent);
+                        const agentTotals = agentPerfData.data.map(a => a.total_rented);
+
+                        const rentedUnitsByAgentCanvas = document.getElementById('rentedUnitsByAgentChart');
+                        rentedUnitsByAgentChart = new Chart(rentedUnitsByAgentCanvas, {
+                            type: 'bar', // Diubah jadi 'bar' agar lebih mudah dibaca
+                            data: {
+                                labels: agentLabels,
+                                datasets: [{
+                                    label: 'Total Unit Disewakan',
+                                    data: agentTotals,
+                                    backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                                }]
+                            },
+                            options: { indexAxis: 'y' }
+                        });
+                    } else {
+                        showAlert('Gagal memuat performa agen.', 'danger');
+                    }
+
+                    // Chart 4: Top 5 Unit (dengan info Agen)
+                    // Kita gunakan data dari /popular-units
+                    if (popData.success) {
+                        const topUnitsByAgentCanvas = document.getElementById('topUnitsByAgentChart');
+                        topUnitsByAgentChart = new Chart(topUnitsByAgentCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: popData.labels.map((label, index) => `${label} (${popData.agents[index] || 'N/A'})`), // Gabung label unit + agen
+                                datasets: [{
+                                    label: 'Jumlah Sewa',
+                                    data: popData.data,
+                                    backgroundColor: 'rgba(153, 102, 255, 0.5)'
+                                }]
+                            },
+                            options: { indexAxis: 'y' }
+                        });
+                    }
+                } else {
+                    adminStatsContainer.style.display = 'none';
+                }
+            } catch (error) {
+                console.error("Error loading dashboard stats:", error);
+                showAlert("Terjadi kesalahan saat memuat dashboard.", "danger");
+            }
         }
-    }
 
         // Function to display violation photos directly and hide uploader for agents
         async function loadDashboardViolations() {
@@ -947,6 +1162,76 @@
                  document.getElementById('violation-photo-file').value = '';
                  loadDashboardViolations();
             }
+        }
+
+        
+        function renderPagination(totalItems, totalPages, page) {
+            const containerTop = document.getElementById('pagination-controls-top');
+            const containerBottom = document.getElementById('pagination-controls-bottom');
+            
+            if (totalPages <= 1) { 
+                containerTop.innerHTML = '';
+                containerBottom.innerHTML = '';
+                return;
+            }
+
+            let paginationHTML = '';
+            
+            paginationHTML += `<button onclick="changePage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&laquo; Prev</button>`;
+
+            const maxPagesToShow = 5; 
+            let startPage = Math.max(1, page - Math.floor(maxPagesToShow / 2));
+            let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+            if (endPage - startPage + 1 < maxPagesToShow) {
+                startPage = Math.max(1, endPage - maxPagesToShow + 1);
+            }
+
+            if (startPage > 1) {
+                paginationHTML += `<button onclick="changePage(1)">1</button>`;
+                if (startPage > 2) {
+                    paginationHTML += `<span class="page-ellipsis">...</span>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `<button onclick="changePage(${i})" class="${i === page ? 'active' : ''}">${i}</button>`;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<span class="page-ellipsis">...</span>`;
+                }
+                paginationHTML += `<button onclick="changePage(${totalPages})">${totalPages}</button>`;
+            }
+
+            paginationHTML += `<button onclick="changePage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+
+            const startItem = (page - 1) * itemsPerPage + 1;
+            const endItem = Math.min(page * itemsPerPage, totalItems);
+            paginationHTML += `<span class="pagination-info">Menampilkan ${startItem}-${endItem} dari ${totalItems} data</span>`;
+
+            containerTop.innerHTML = paginationHTML;
+            containerBottom.innerHTML = paginationHTML;
+        }
+
+        
+        function changePage(page) {
+            // Tetapkan halaman baru dan muat ulang data dengan mode tampilan saat ini
+            currentPage = page;
+            loadRentalsData(currentViewMode, false); 
+        }
+
+        /* ▼▼▼ UBAH FUNGSI 'updateRental' (Hanya 1 baris) ▼▼▼ */
+        async function updateRental(id) {
+            // ... (kode lama Anda untuk mengambil data & fetch)
+            const result = await response.json();
+            showAlert(result.message, result.success ? 'success' : 'danger');
+            
+            
+            // Muat ulang tampilan saat ini, reset ke halaman 1
+            if (result.success) loadRentalsData(currentViewMode, true); 
+           
         }
 
         async function loadAgentsForManagement() {

@@ -1,5 +1,5 @@
-// package.json dependencies needed:
-// npm install express mysql2 bcrypt dotenv path body-parser express-session cors multer json2csv
+// // package.json dependencies needed:
+// // npm install express mysql2 bcrypt dotenv path body-parser express-session cors multer json2csv
 
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -26,6 +26,10 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+
+
+
+
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
@@ -136,41 +140,93 @@ app.get('/api/user', (req, res) => {
 
 // ================== RENTALS DATA ==================
 app.get('/api/rentals', checkAuth, async (req, res) => {
-    const user = req.session.user;
-    let query = `
-        SELECT
-            r.*,
-            (SELECT GROUP_CONCAT(
-                JSON_OBJECT(
-                    'action', l.action, 'field_changed', l.field_changed, 'old_value', l.old_value,
-                    'new_value', l.new_value, 'email', l.email, 'time_stamp', l.time_stamp
-                ) SEPARATOR '|||'
-            ) FROM rental_logs l WHERE l.rental_id = r.id) as logs_json
-        FROM rentals r
-    `;
-    const params = [];
-
-    if (!ADMIN_ROLES.includes(user.role)) {
-        query += ' WHERE r.email_agent = ?';
-        params.push(user.email);
-    }
-    query += ' ORDER BY r.created_at DESC';
-
     try {
-        const [rows] = await pool.query(query, params);
+        // PAGINATION & FILTER LOGIC
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const hasCommentFilter = req.query.commentFilter === 'true';
+        const offset = (page - 1) * limit;
+        
+        const user = req.session.user;
+        let whereClauses = [];
+        let params = [];
+
+        // Filter berdasarkan Role
+        if (!ADMIN_ROLES.includes(user.role)) {
+            whereClauses.push('r.email_agent = ?');
+            params.push(user.email);
+        }
+        
+        // Filter berdasarkan Komentar (jika ada)
+        if (hasCommentFilter) {
+            whereClauses.push("(r.komentar IS NOT NULL AND r.komentar != '[]' AND r.komentar != '')");
+        }
+        
+        const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+        // --- Query 1: Menghitung Total Item ---
+        const countQuery = `SELECT COUNT(*) as totalItems FROM rentals r ${whereSql}`;
+        const [countRows] = await pool.query(countQuery, params);
+        const totalItems = countRows[0].totalItems;
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // --- Query 2: Mengambil Data untuk Halaman Ini ---
+        const logSubQuery = `(SELECT GROUP_CONCAT(
+            JSON_OBJECT(
+                'action', l.action, 'field_changed', l.field_changed, 'old_value', l.old_value,
+                'new_value', l.new_value, 'email', l.email, 'time_stamp', l.time_stamp
+            ) SEPARATOR '|||'
+        ) FROM rental_logs l WHERE l.rental_id = r.id) as logs_json`;
+        
+        const dataQuery = `
+            SELECT r.*, ${logSubQuery}
+            FROM rentals r
+            ${whereSql}
+            ORDER BY r.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
+        
+        // Tambahkan parameter limit dan offset ke params
+        const dataParams = [...params, limit, offset];
+        const [rows] = await pool.query(dataQuery, dataParams);
         
         rows.forEach(r => {
-            r.status_pasutri = r.status_pasutri === 'Menikah' ? 'Ya' : 'Belum Menikah';
-            r.komentar = JSON.parse(r.komentar || '[]');
+            r.status_pasutri = r.status_pasutri === 'Ya' ? 'Ya' : 'Belum Menikah';
+            try {
+                r.komentar = JSON.parse(r.komentar || '[]');
+            } catch (e) {
+                r.komentar = r.komentar ? [r.komentar] : [];
+            }
             if (r.logs_json) {
-                r.logs = r.logs_json.split('|||').map(logStr => JSON.parse(logStr))
-                                        .sort((a, b) => new Date(b.time_stamp) - new Date(a.time_stamp));
+                r.logs = r.logs_json.split('|||').map(logStr => {
+                    try {
+                        return JSON.parse(logStr);
+                    } catch (e) {
+                        return { action: "invalid_log", error: "Invalid JSON" };
+                    }
+                }).sort((a, b) => {
+                    if (!a.time_stamp || !b.time_stamp) return 0;
+                    return new Date(b.time_stamp) - new Date(a.time_stamp);
+                });
             } else {
                 r.logs = [];
             }
             delete r.logs_json;
         });
-        res.json({ success: true, data: rows });
+
+        // Kirim Respon Terstruktur Baru 
+        res.json({ 
+            success: true, 
+            data: rows, 
+            pagination: {
+                page: page,
+                limit: limit,
+                totalItems: totalItems,
+                totalPages: totalPages
+            }
+        });
+        
+
     } catch (error) {
         console.error("Error fetching rentals with logs:", error);
         res.status(500).json({ success: false, message: 'Gagal mengambil data penyewa.' });
@@ -239,16 +295,42 @@ app.put('/api/rentals/:id', checkAuth, async (req, res) => {
 
 app.get('/api/rentals/duplicates', checkAdmin, async (req, res) => {
     try {
-        const query = `
+        
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+
+        const innerQuery = `(SELECT nik FROM rentals WHERE nik IS NOT NULL AND nik != '' GROUP BY nik HAVING COUNT(*) > 1) r2`;
+
+        // --- Query 1: Menghitung Total Item ---
+        const countQuery = `SELECT COUNT(DISTINCT r1.id) as totalItems FROM rentals r1 INNER JOIN ${innerQuery} ON r1.nik = r2.nik`;
+        const [countRows] = await pool.query(countQuery);
+        const totalItems = countRows[0].totalItems;
+        const totalPages = Math.ceil(totalItems / limit);
+
+        // --- Query 2: Mengambil Data ---
+        const dataQuery = `
             SELECT r1.* FROM rentals r1
-            INNER JOIN (
-                SELECT nik FROM rentals WHERE nik IS NOT NULL AND nik != '' GROUP BY nik HAVING COUNT(*) > 1
-            ) r2 ON r1.nik = r2.nik
-            ORDER BY r1.nik, r1.created_at DESC;
+            INNER JOIN ${innerQuery} ON r1.nik = r2.nik
+            ORDER BY r1.nik, r1.created_at DESC
+            LIMIT ? OFFSET ?
         `;
-        const [rows] = await pool.query(query);
+        const [rows] = await pool.query(dataQuery, [limit, offset]);
+        
+        
         rows.forEach(r => r.komentar = JSON.parse(r.komentar || '[]'));
-        res.json({ success: true, data: rows });
+        
+        // Kirim Respon Terstruktur Baru 
+        res.json({ 
+            success: true, 
+            data: rows,
+            pagination: {
+                page: page,
+                limit: limit,
+                totalItems: totalItems,
+                totalPages: totalPages
+            }
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Gagal cek data duplikat.' });
     }
@@ -346,16 +428,16 @@ app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
     const { filter } = req.query;
     const user = req.session.user;
     
-    let groupBy = "DATE_FORMAT(created_at, '%Y-%m-%d')"; // Daily for weekly
-    let dateFilter = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    let groupBy = "DATE_FORMAT(tanggal_checkin, '%Y-%m-%d')"; // Daily for weekly
+    let dateFilter = 'WHERE tanggal_checkin >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
 
     if (filter === 'monthly') {
-        dateFilter = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
+        dateFilter = 'WHERE tanggal_checkin >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
     } else if (filter === 'all') {
-        groupBy = "DATE_FORMAT(created_at, '%Y-%m')"; // Monthly for all-time
+        groupBy = "DATE_FORMAT(tanggal_checkin, '%Y-%m')"; // Monthly for all-time
         dateFilter = '';
     }
-
+    
     let query = `
         SELECT ${groupBy} as period, COUNT(*) as count 
         FROM rentals 
@@ -526,18 +608,19 @@ app.delete('/api/dashboard/violations/:id', checkAdmin, async (req, res) => {
 
 // ================== MANAJEMEN UNIT ==================
 async function getOccupiedUnits() {
-    try {
-        // A unit is occupied if its checkout date is today or in the future.
-        const [occupied] = await pool.query(
-            "SELECT DISTINCT CONCAT(tower, '-', lantai, '-', unit) as unit_string FROM rentals WHERE tanggal_checkout >= CURDATE()"
-        );
-        // Return a Set for fast O(1) lookups
-        return new Set(occupied.map(r => r.unit_string));
-    } catch (error) {
-        console.error("Error fetching occupied units:", error);
-        return new Set(); // Return an empty set on error
-    }
+    try {
+        const [occupied] = await pool.query(
+            `SELECT DISTINCT CONCAT(tower, '-', lantai, '-', unit) AS unit_string 
+             FROM rentals 
+             WHERE tanggal_checkout >= CURDATE()`
+        );
+        return new Set(occupied.map(r => r.unit_string));
+    } catch (error) {
+        console.error("Error fetching occupied units:", error);
+        return new Set();
+    }
 }
+
 
 
 async function getAgentIdByEmail(email) {
@@ -582,28 +665,105 @@ app.get('/api/units/:agentEmail', checkAdmin, async (req, res) => {
     }
 });
 
+app.get('/api/units', checkAuth, async (req, res) => {
+    try {
+        const [units] = await pool.query(
+            `SELECT unit_id, tower, lantai, nomor_unit, kode 
+             FROM units ORDER BY tower, lantai, nomor_unit`
+        );
+
+        const occupiedSet = await getOccupiedUnits();
+
+        const data = units.map(u => {
+            const unitString = `${u.tower}-${u.lantai}-${u.nomor_unit}`;
+            return {
+                ...u,
+                status: occupiedSet.has(unitString) ? 'Occupied' : 'Available'
+            };
+        });
+
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error("Error loading units:", error);
+        res.status(500).json({ success: false, message: "Gagal memuat unit." });
+    }
+});
+
+
 app.post('/api/units', checkAdmin, async (req, res) => {
-    const { agent_email, unit_tower, unit_lantai, unit_nomor } = req.body;
-    try {
-        const agentId = await getAgentIdByEmail(agent_email);
-        if (!agentId) return res.status(404).json({ success: false, message: 'Agent tidak ditemukan.' });
+    const { tower, lantai, nomor_unit, kode } = req.body;
 
-        const unitNumber = `${unit_tower}-${unit_lantai}-${unit_nomor}`;
-        await pool.query("INSERT INTO units (agent_id, unit_number) VALUES (?, ?)", [agentId, unitNumber]);
-        res.json({ success: true, message: 'Unit berhasil ditambahkan.' });
+    if (!tower || !lantai || !nomor_unit) {
+        return res.status(400).json({ success: false, message: "Data unit tidak lengkap." });
+    }
+
+    try {
+        await pool.query(
+            `INSERT INTO units (tower, lantai, nomor_unit, kode) VALUES (?, ?, ?, ?)`,
+            [tower, lantai, nomor_unit, kode || null]
+        );
+        res.json({ success: true, message: "Unit berhasil ditambahkan." });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Gagal menambahkan unit.' });
+        console.error("Add Unit Error:", error);
+        res.status(500).json({ success: false, message: "Gagal menambah unit." });
     }
 });
 
-app.delete('/api/units/:unitId', checkAdmin, async (req, res) => {
+app.put('/api/units/:id', checkAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { tower, lantai, nomor_unit, kode } = req.body;
+
     try {
-        await pool.query("DELETE FROM units WHERE id = ?", [req.params.unitId]);
-        res.json({ success: true, message: 'Unit berhasil dihapus.' });
+        const [result] = await pool.query(
+            `UPDATE units SET tower = ?, lantai = ?, nomor_unit = ?, kode = ? WHERE unit_id = ?`,
+            [tower, lantai, nomor_unit, kode, id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "Unit tidak ditemukan." });
+        }
+
+        res.json({ success: true, message: "Unit berhasil diperbarui." });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Gagal menghapus unit.' });
+        console.error("Update Unit Error:", error);
+        res.status(500).json({ success: false, message: "Gagal memperbarui unit." });
     }
 });
+
+
+app.delete('/api/units/:id', checkAdmin, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const [inUse] = await pool.query(
+            `SELECT id FROM rentals 
+             WHERE CONCAT(tower, '-', lantai, '-', unit) = (
+                SELECT CONCAT(tower, '-', lantai, '-', nomor_unit) 
+                FROM units WHERE unit_id = ?
+             ) AND tanggal_checkout >= CURDATE()`,
+            [id]
+        );
+
+        if (inUse.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Unit tidak dapat dihapus karena sedang digunakan."
+            });
+        }
+
+        const [result] = await pool.query(`DELETE FROM units WHERE unit_id = ?`, [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: "Unit tidak ditemukan." });
+        }
+
+        res.json({ success: true, message: "Unit berhasil dihapus." });
+    } catch (error) {
+        console.error("Delete Unit Error:", error);
+        res.status(500).json({ success: false, message: "Gagal menghapus unit." });
+    }
+});
+
 
 app.get('/api/my-units', checkAuth, async(req, res) => {
     try {
@@ -686,6 +846,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
         }
 
         const lama_menginap = calculateDays(tanggal_checkin, tanggal_checkout);
+        const db_status_pasutri = status_pasutri === 'Ya' ? 'Menikah' : 'Belum Menikah';
 
         const sql = `INSERT INTO rentals (
             nama, nik, status_pasutri, tower, lantai, unit, status_kewarganegaraan, 
@@ -745,7 +906,7 @@ app.get('/api/pelanggaran-list', checkAuth, (req, res) => {
 });
 
 // Fallback Route
-app.get('/*', (req, res) => {
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
