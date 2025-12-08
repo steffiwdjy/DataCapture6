@@ -873,9 +873,9 @@
                     <td>${r.jenis_sewa || ''}</td>
                     <td>${paymentMethod || ''}</td>
                     <td>${checkinDate}</td>
-                    <td>${r.waktu_checkin || ''}</td>
+                    <td>${(r.waktu_checkin || '').substring(0,5)}</td>
                     <td>${checkoutDate}</td>
-                    <td>${r.waktu_checkout || ''}</td>
+                    <td>${(r.waktu_checkout || '').substring(0,5)}</td>
                     <td>${r.lama_menginap ?? ''}</td>
                     <td>${(r.komentar || []).join(', ')}</td>
                     <td>${r.user_email || ''}</td>

@@ -5,8 +5,8 @@ import { faker } from '@faker-js/faker';
 const dbConfig = {
   host: '127.0.0.1',
   user: 'root',
-  password: 'rootpassword',
-  database: 'hotel_booking'
+  password: '',
+  database: 'hotel_booking_2'
 };
 
 // --- HELPER: SUSPICIOUS COMMENTS ---
