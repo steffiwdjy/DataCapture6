@@ -852,7 +852,7 @@
       // --- 4. Render Tabel ---
       let tableHTML = `<table class="table"><thead><tr>
                 <th>NIK</th><th>Nama</th><th>Kewarganegaraan</th><th>Status Perkawinan</th><th>Unit</th><th>Jenis Sewa</th>
-                <th>Metode Pembayaran</th><th>Tgl Check In</th><th>Tgl Check Out</th><th>Lama (Hari)</th>
+                <th>Metode Pembayaran</th><th>Tgl Check In</th><th>Waktu Check In</th><th>Tgl Check Out</th><th>Waktu Checkout</th><th>Lama (Hari)</th>
                 <th>Komentar</th><th>Email Agen</th><th>Diedit Oleh</th><th>Log</th>
             </tr></thead><tbody>`;
 
@@ -873,7 +873,9 @@
                     <td>${r.jenis_sewa || ''}</td>
                     <td>${paymentMethod || ''}</td>
                     <td>${checkinDate}</td>
+                    <td>${r.waktu_checkin || ''}</td>
                     <td>${checkoutDate}</td>
+                    <td>${r.waktu_checkout || ''}</td>
                     <td>${r.lama_menginap ?? ''}</td>
                     <td>${(r.komentar || []).join(', ')}</td>
                     <td>${r.user_email || ''}</td>

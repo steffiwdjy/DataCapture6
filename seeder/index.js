@@ -242,7 +242,7 @@ async function seed() {
     // Add create logs for each rental
     const createLogQuery = `INSERT INTO rental_logs (action, field_changed, new_value, email, rental_id) VALUES ?`;
     const createLogEntries = rentalRows.map(row => ['create', 'all', JSON.stringify(row), row.user_email, row.id]);
-    const logChunkSize = 2000;
+    const logChunkSize = 1000;
     for (let i = 0; i < createLogEntries.length; i += logChunkSize) {
       const chunk = createLogEntries.slice(i, i + logChunkSize);
       await connection.query(createLogQuery, [chunk]);
