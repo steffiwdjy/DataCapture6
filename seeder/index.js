@@ -82,7 +82,7 @@ async function seed() {
     await connection.query(`INSERT INTO users (email, password, nib, role, name) VALUES ?`, [users]);
     await connection.query(`
       INSERT INTO \`users\` (\`email\`, \`password\`, \`nib\`, \`role\`,name, \`created_at\`) VALUES
-      ('ketua_agen@gmail.com', '$2a$12$qI0kCaS1j8ociVLWbueVsusQWgumGENCn/uy1JAvj9WO4d3pUh3FG', '', 'ketua agen','ketua', '2025-10-04 18:25:32'),
+      ('ketua_agen@gmail.com', '$2a$12$gi8waPwYFYunLlAaLavLZ.yp1t/DAe8NuC7a1kDrOr3x6Wnf7PGre', '', 'ketua agen','ketua', '2025-10-04 18:25:32'),
       ('p3srs@gmail.com', '$2a$12$pd0wjRxHx9NzMAtGznOlre7oAZKrJgGsKMabk8VEkmSwA0vOGt6Xy', '', 'p3srs','p3srs', '2025-10-04 18:40:28'),
       ('pkj@gmail.com', '$2a$12$1N5x3qJ0ojNC7hz7HOh2RujSBLrpI/WrM4Z05dLDsn97Hl1qUpzhq', '', 'pkj','pkj', '2025-10-04 18:40:28');
     `);
@@ -169,9 +169,9 @@ async function seed() {
 
       // D. FORMAT SQL
       const sqlCheckinDate = checkinObj.toISOString().slice(0, 10);
-      const sqlCheckinTime = checkinObj.toTimeString().split(' ')[0];
+      const sqlCheckinTime = checkinObj.toTimeString().split(' ')[0].slice(0,5);
       const sqlCheckoutDate = checkoutObj.toISOString().slice(0, 10);
-      const sqlCheckoutTime = checkoutObj.toTimeString().split(' ')[0];
+      const sqlCheckoutTime = checkoutObj.toTimeString().split(' ')[0].slice(0,5);
 
       const oneDay = 24 * 60 * 60 * 1000;
       const d1 = new Date(sqlCheckinDate);
@@ -236,8 +236,13 @@ async function seed() {
     // STEP 4: SEED LOGS & VIOLATIONS
     // =================================================
     console.log("Seeding Logs and Violations...");
-    const [rentalRows] = await connection.query('SELECT id FROM rentals');
+    const [rentalRows] = await connection.query('SELECT * FROM rentals');
     const rentalIds = rentalRows.map(r => r.id);
+
+    // Add create logs for each rental
+    const createLogQuery = `INSERT INTO rental_logs (action, field_changed, new_value, email, rental_id) VALUES ?`;
+    const createLogEntries = rentalRows.map(row => ['create', 'all', JSON.stringify(row), row.user_email, row.id]);
+    await connection.query(createLogQuery, [createLogEntries]);
 
     const logs = [];
     const fake = (type, old) => {

@@ -172,7 +172,7 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
         ) FROM rental_logs l WHERE l.rental_id = r.id) as logs_json`;
 
     const dataQuery = `
-            SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as email_agent, ${logSubQuery}
+            SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as user_email, ${logSubQuery}
             FROM rentals r
             LEFT JOIN units u ON r.unit_number = u.unit_number
             ${whereSql}
@@ -341,7 +341,7 @@ app.get('/api/rentals/duplicates', checkAdmin, async (req, res) => {
 app.get('/api/rentals/csv', checkAuth, async (req, res) => {
   try {
     const user = req.session.user;
-    let query = 'SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as email_agent FROM rentals r LEFT JOIN units u ON r.unit_number = u.unit_number';
+    let query = 'SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as user_email FROM rentals r LEFT JOIN units u ON r.unit_number = u.unit_number';
     const params = [];
 
     if (!ADMIN_ROLES.includes(user.role)) {
@@ -351,7 +351,7 @@ app.get('/api/rentals/csv', checkAuth, async (req, res) => {
     query += ' ORDER BY r.created_at DESC';
     const [rows] = await pool.query(query, params);
 
-    const fields = ['id', 'nama', 'nik', 'status_pasutri', 'status_kewarganegaraan', 'tower', 'lantai', 'unit', 'jenis_sewa', 'metode_pembayaran', 'metode_lain', 'tanggal_checkin', 'waktu_checkin', 'tanggal_checkout', 'waktu_checkout', 'lama_menginap', 'email_agent', 'diedit_oleh', 'created_at'];
+    const fields = ['id', 'nama', 'nik', 'status_pasutri', 'status_kewarganegaraan', 'tower', 'lantai', 'unit', 'jenis_sewa', 'metode_pembayaran', 'metode_lain', 'tanggal_checkin', 'waktu_checkin', 'tanggal_checkout', 'waktu_checkout', 'lama_menginap', 'user_email', 'diedit_oleh', 'created_at'];
     const csv = new Parser({ fields }).parse(rows);
 
     res.header('Content-Type', 'text/csv');
@@ -445,7 +445,7 @@ app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
   const params = [];
 
   if (!ADMIN_ROLES.includes(user.role)) {
-    query += ` ${dateFilter ? 'AND' : 'WHERE'} email_agent = ?`;
+    query += ` ${dateFilter ? 'AND' : 'WHERE'} user_email = ?`;
     params.push(user.email);
   }
 
@@ -477,7 +477,7 @@ app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
   let query = `
         SELECT 
             CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit_full, 
-            r.user_email as email_agent,
+            r.user_email as user_email,
             COUNT(*) as rental_count 
         FROM rentals r
         LEFT JOIN units u ON r.unit_number = u.unit_number
@@ -496,7 +496,7 @@ app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
     const [results] = await pool.query(query, params);
     const labels = results.map(r => r.unit_full);
     const data = results.map(r => r.rental_count);
-    const agents = results.map(r => r.email_agent); // For admin view
+    const agents = results.map(r => r.user_email); // For admin view
     res.json({ success: true, labels, data, agents });
   } catch (error) {
     console.error("Popular Units Error:", error);
