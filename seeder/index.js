@@ -242,7 +242,12 @@ async function seed() {
     // Add create logs for each rental
     const createLogQuery = `INSERT INTO rental_logs (action, field_changed, new_value, email, rental_id) VALUES ?`;
     const createLogEntries = rentalRows.map(row => ['create', 'all', JSON.stringify(row), row.user_email, row.id]);
-    await connection.query(createLogQuery, [createLogEntries]);
+    const logChunkSize = 2000;
+    for (let i = 0; i < createLogEntries.length; i += logChunkSize) {
+      const chunk = createLogEntries.slice(i, i + logChunkSize);
+      await connection.query(createLogQuery, [chunk]);
+      console.log(`Inserted create logs batch ${i} to ${i + chunk.length}`);
+    }
 
     const logs = [];
     const fake = (type, old) => {
