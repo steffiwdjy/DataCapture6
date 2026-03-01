@@ -1,12 +1,11 @@
 // // package.json dependencies needed:
-// // npm install express mysql2 bcrypt dotenv path body-parser express-session cors multer json2csv
+// // npm install express mysql2 dotenv path body-parser cors multer json2csv jsonwebtoken
 
 const express = require('express');
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
 const path = require('path');
 const bodyParser = require('body-parser');
-const session = require('express-session');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const multer = require('multer');
 const { Parser } = require('json2csv');
@@ -14,6 +13,7 @@ require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 7000;
+const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-key-jarrdin';
 
 // --- File Upload Configuration ---
 const storage = multer.diskStorage({
@@ -33,12 +33,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('public/uploads'));
-app.use(session({
-  secret: 'kunci-rahasia-super-aman-jangan-disebar',
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false }
-}));
 
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
@@ -52,15 +46,23 @@ const pool = mysql.createPool({
 
 // --- Security Middleware ---
 const checkAuth = (req, res, next) => {
-  if (!req.session.user) {
+  const authHeader = req.headers['authorization'];
+  const token = (authHeader && authHeader.split(' ')[1]) || req.query.token;
+  if (!token) {
     return res.status(401).json({ success: false, message: "Akses ditolak. Silakan login." });
   }
-  next();
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Token tidak valid. Silakan login ulang." });
+  }
 };
 
-const ADMIN_ROLES = ['ketua agen', 'p3srs', 'pkj'];
+const ADMIN_ROLES = ['p3srs', 'pkj'];
+const isAdmin = (user) => user && user.roles && user.roles.some(r => ADMIN_ROLES.includes(r));
 const checkAdmin = (req, res, next) => {
-  if (!req.session.user || !ADMIN_ROLES.includes(req.session.user.role)) {
+  if (!isAdmin(req.user)) {
     return res.status(403).json({ success: false, message: "Akses ditolak. Fitur ini hanya untuk admin." });
   }
   next();
@@ -68,27 +70,29 @@ const checkAdmin = (req, res, next) => {
 
 // ================== AUTHENTICATION ==================
 app.post('/api/signup', async (req, res) => {
-  const { email, password, nib } = req.body;
-  if (!email || !password || !nib || password.length < 8 || !/^\d{13}$/.test(nib)) {
-    return res.status(400).json({ success: false, message: "Data tidak valid." });
+  const { email, nama, no_unit, no_telp, alamat } = req.body;
+  if (!email || !nama || !no_unit) {
+    return res.status(400).json({ success: false, message: "Data tidak valid. Pastikan email, nama, dan no_unit diisi." });
   }
 
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
 
-    const [existingUser] = await conn.query('SELECT email FROM users WHERE email = ?', [email]);
+    const [existingUser] = await conn.query('SELECT email FROM pengguna WHERE email = ?', [email]);
     if (existingUser.length > 0) {
       await conn.rollback();
       conn.release();
       return res.status(409).json({ success: false, message: "Email sudah terdaftar." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await conn.query(
-      'INSERT INTO users (email, password, nib, role, name) VALUES (?, ?, ?, ?, ?)',
-      [email, hashedPassword, nib, 'agen', email]
+    const kode_user = `${nama.split(' ')[0]} ${no_unit}`;
+    const [result] = await conn.query(
+      'INSERT INTO pengguna (kode_user, nama, no_unit, alamat, no_telp, email) VALUES (?, ?, ?, ?, ?, ?)',
+      [kode_user, nama, no_unit, alamat || null, no_telp || null, email]
     );
+
+    await conn.query('INSERT INTO pengguna_role (user_id, role_id) VALUES (?, ?)', [result.insertId, 2]);
 
     await conn.commit();
     conn.release();
@@ -103,31 +107,36 @@ app.post('/api/signup', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email } = req.body;
   try {
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [rows] = await pool.query(`
+      SELECT p.*, GROUP_CONCAT(r.nama) as role_names
+      FROM pengguna p
+      LEFT JOIN pengguna_role pr ON p.id = pr.user_id
+      LEFT JOIN role r ON pr.role_id = r.id
+      WHERE p.email = ?
+      GROUP BY p.id
+    `, [email]);
     if (rows.length === 0) {
-      return res.status(401).json({ success: false, message: "Email atau password salah." });
+      return res.status(401).json({ success: false, message: "Email tidak ditemukan." });
     }
-    const user = rows[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (match) {
-      req.session.user = { id: user.id, email: user.email, role: user.role };
-      res.json({ success: true, user: req.session.user });
-    } else {
-      res.status(401).json({ success: false, message: "Email atau password salah." });
-    }
+    const pengguna = rows[0];
+    const roles = pengguna.role_names ? pengguna.role_names.split(',') : [];
+    const payload = { id: pengguna.id, email: pengguna.email, nama: pengguna.nama, no_unit: pengguna.no_unit, kode_user: pengguna.kode_user, roles };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '12h' });
+    res.json({ success: true, token, user: payload });
   } catch (error) {
+    console.error("Login Error:", error);
     res.status(500).json({ success: false, message: "Server error." });
   }
 });
 
 app.post('/api/logout', (req, res) => {
-  req.session.destroy(() => res.json({ success: true }));
+  res.json({ success: true });
 });
 
-app.get('/api/user', (req, res) => {
-  res.json({ user: req.session.user || null });
+app.get('/api/user', checkAuth, (req, res) => {
+  res.json({ user: req.user });
 });
 
 
@@ -140,12 +149,12 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
     const hasCommentFilter = req.query.commentFilter === 'true';
     const offset = (page - 1) * limit;
 
-    const user = req.session.user;
+    const user = req.user;
     let whereClauses = [];
     let params = [];
 
     // Filter berdasarkan Role
-    if (!ADMIN_ROLES.includes(user.role)) {
+    if (!isAdmin(user)) {
       whereClauses.push('r.user_email = ?');
       params.push(user.email);
     }
@@ -263,12 +272,12 @@ app.put('/api/rentals/:id', checkAuth, async (req, res) => {
 
       if (String(oldValue) !== String(newData[key])) {
         changedFields[key] = newData[key];
-        logEntries.push(['update', key, String(oldValue), String(newData[key]), req.session.user.email, id]);
+        logEntries.push(['update', key, String(oldValue), String(newData[key]), req.user.email, id]);
       }
     });
 
     if (Object.keys(changedFields).length > 0) {
-      changedFields.diedit_oleh = req.session.user.email;
+      changedFields.diedit_oleh = req.user.email;
       const updateQuery = 'UPDATE rentals SET ' + Object.keys(changedFields).map(key => `${key} = ?`).join(', ') + ' WHERE id = ?';
       const updateParams = [...Object.values(changedFields), id];
       await conn.query(updateQuery, updateParams);
@@ -340,11 +349,11 @@ app.get('/api/rentals/duplicates', checkAdmin, async (req, res) => {
 // --- 1. DOWNLOAD RENTAL DATA (All Roles) ---
 app.get('/api/rentals/csv', checkAuth, async (req, res) => {
   try {
-    const user = req.session.user;
+    const user = req.user;
     let query = 'SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as user_email FROM rentals r LEFT JOIN units u ON r.unit_number = u.unit_number';
     const params = [];
 
-    if (!ADMIN_ROLES.includes(user.role)) {
+    if (!isAdmin(user)) {
       query += ' WHERE r.user_email = ?';
       params.push(user.email);
     }
@@ -365,7 +374,7 @@ app.get('/api/rentals/csv', checkAuth, async (req, res) => {
 // --- 2. DOWNLOAD ALL LOG DATA (All Roles) ---
 app.get('/api/logs/csv', checkAuth, async (req, res) => {
   try {
-    const user = req.session.user;
+    const user = req.user;
     let query = `
             SELECT 
                 l.id, l.timestamp, l.email, r.nama as nama_penyewa, CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit,
@@ -376,7 +385,7 @@ app.get('/api/logs/csv', checkAuth, async (req, res) => {
         `;
     const params = [];
 
-    if (!ADMIN_ROLES.includes(user.role)) {
+    if (!isAdmin(user)) {
       query += ' WHERE r.user_email = ?';
       params.push(user.email);
     }
@@ -425,7 +434,7 @@ app.get('/api/rentals/:id/log/csv', checkAuth, async (req, res) => {
 // --- 1. RENTALS OVER TIME (FOR LINE CHART) ---
 app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
   const { filter } = req.query;
-  const user = req.session.user;
+  const user = req.user;
 
   let groupBy = "DATE_FORMAT(tanggal_checkin, '%Y-%m-%d')"; // Daily for weekly
   let dateFilter = 'WHERE tanggal_checkin >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
@@ -444,7 +453,7 @@ app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
     `;
   const params = [];
 
-  if (!ADMIN_ROLES.includes(user.role)) {
+  if (!isAdmin(user)) {
     query += ` ${dateFilter ? 'AND' : 'WHERE'} user_email = ?`;
     params.push(user.email);
   }
@@ -465,7 +474,7 @@ app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
 // --- 2. POPULAR UNITS (FOR HISTOGRAM) ---
 app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
   const { filter } = req.query;
-  const user = req.session.user;
+  const user = req.user;
 
   let dateFilter = '';
   if (filter === 'weekly') {
@@ -485,7 +494,7 @@ app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
     `;
   const params = [];
 
-  if (!ADMIN_ROLES.includes(user.role)) {
+  if (!isAdmin(user)) {
     query += ` ${dateFilter ? 'AND' : 'WHERE'} r.user_email = ?`;
     params.push(user.email);
   }
@@ -541,7 +550,7 @@ app.post('/api/dashboard/violations', checkAdmin, upload.single('photo'), async 
   try {
     await pool.query(
       `INSERT INTO violations (rental_id, description, photo_url, uploaded_by) VALUES (?, ?, ?, ?)`,
-      [rental_id, description, photo_url, req.session.user.email]
+      [rental_id, description, photo_url, req.user.email]
     );
     res.json({ success: true, message: 'Laporan pelanggaran berhasil diupload.' });
   } catch (error) {
@@ -552,10 +561,10 @@ app.post('/api/dashboard/violations', checkAdmin, upload.single('photo'), async 
 
 app.get('/api/dashboard/violations', checkAuth, async (req, res) => {
   try {
-    const user = req.session.user;
-    const isAdmin = ADMIN_ROLES.includes(user.role);
+    const user = req.user;
+    const userIsAdmin = isAdmin(user);
 
-    const uploadedByField = isAdmin ? 'v.uploaded_by' : "'' as uploaded_by";
+    const uploadedByField = userIsAdmin ? 'v.uploaded_by' : "'' as uploaded_by";
 
     const query = `SELECT v.id, v.description, v.photo_url, v.created_at, r.nama, CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit, ${uploadedByField}
             FROM violations v 
@@ -628,8 +637,8 @@ async function getOccupiedUnits() {
 async function getAgentIdByEmail(email) {
   const conn = await pool.getConnection();
   try {
-    const [rows] = await conn.query("SELECT agent_id FROM users WHERE email = ?", [email]);
-    return rows.length > 0 ? rows[0].agent_id : null;
+    const [rows] = await conn.query("SELECT id FROM pengguna WHERE email = ?", [email]);
+    return rows.length > 0 ? rows[0].id : null;
   } finally {
     conn.release();
   }
@@ -646,7 +655,13 @@ function parseUnitNumber(unit_number) {
 
 app.get('/api/agents', checkAdmin, async (req, res) => {
   try {
-    const [agents] = await pool.query("SELECT email FROM users WHERE role = 'agen' ORDER BY email");
+    const [agents] = await pool.query(`
+      SELECT p.email FROM pengguna p
+      INNER JOIN pengguna_role pr ON p.id = pr.user_id
+      INNER JOIN role r ON pr.role_id = r.id
+      WHERE r.nama = 'agen'
+      ORDER BY p.email
+    `);
     res.json({ success: true, data: agents });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Gagal memuat daftar agen.' });
@@ -770,7 +785,7 @@ app.get('/api/my-units', checkAuth, async (req, res) => {
   try {
     const occupiedUnitsSet = await getOccupiedUnits();
 
-    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_email = ?", [req.session.user.email]);
+    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_email = ?", [req.user.email]);
     const formattedUnits = units.map(u => {
 
       const unitParts = parseUnitNumber(u.unit_number);
@@ -836,9 +851,9 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
       jenis_sewa, metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin, tanggal_checkout
     } = req.body;
 
-    const isAdmin = ADMIN_ROLES.includes(req.session.user.role);
-    let agent_email = req.session.user.email;
-    if (isAdmin && req.body.agent_email) {
+    const userIsAdmin = isAdmin(req.user);
+    let agent_email = req.user.email;
+    if (userIsAdmin && req.body.agent_email) {
       agent_email = req.body.agent_email;
     }
 
@@ -864,7 +879,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     // Add creation event to logs
     const logQuery = `INSERT INTO rental_logs (action, field_changed, new_value, email, rental_id) VALUES ?`;
     const logEntries = [
-      ['create', 'all', JSON.stringify(req.body), req.session.user.email, newRentalId]
+      ['create', 'all', JSON.stringify(req.body), req.user.email, newRentalId]
     ];
     await conn.query(logQuery, [logEntries]);
 
@@ -882,7 +897,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
 
 // ================== ETC ==================
 app.get('/api/pelanggaran-list', checkAuth, (req, res) => {
-  const user = req.session.user;
+  const user = req.user;
   const listForAgen = [
     "Ditemukan alat suntik di tempat sampah", "Ditemukan kondom dalam jumlah banyak",
     "Kerusakan parah pada fasilitas", "Kebisingan berlebihan di malam hari",
@@ -895,7 +910,7 @@ app.get('/api/pelanggaran-list', checkAuth, (req, res) => {
     "Agen memberlakukan sistem transit", "Agen lalai terhadap pelanggaran penyewa"
   ];
 
-  if (ADMIN_ROLES.includes(user.role)) {
+  if (isAdmin(user)) {
     res.json({ success: true, data: listForAdmin });
   } else {
     res.json({ success: true, data: listForAgen });

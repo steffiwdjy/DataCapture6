@@ -100,7 +100,7 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `password` text NOT NULL,
   `nib` varchar(13) DEFAULT NULL,
-  `role` enum('ketua agen','p3srs','pkj','agen') NOT NULL DEFAULT 'agen',
+  `role` enum('Pengelola','PelakuKomersil','agen') NOT NULL DEFAULT 'agen',
   `agent_id` int(11) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -110,9 +110,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`email`, `password`, `nib`, `role`, `agent_id`, `created_at`) VALUES
-('ketua_agen@gmail.com', '$2a$12$43IrtmmkEU6QXiJP9AVlc.5SQVLTSrG6kWTDg0Y0EyJBzdMX/KWru', '', 'ketua agen', NULL, '2025-10-04 18:25:32'),
-('p3srs@gmail.com', '$2a$12$pd0wjRxHx9NzMAtGznOlre7oAZKrJgGsKMabk8VEkmSwA0vOGt6Xy', '', 'p3srs', NULL, '2025-10-04 18:40:28'),
-('pkj@gmail.com', '$2a$12$1N5x3qJ0ojNC7hz7HOh2RujSBLrpI/WrM4Z05dLDsn97Hl1qUpzhq', '', 'pkj', NULL, '2025-10-04 18:40:28');
+('ketua_agen@gmail.com', '$2a$12$43IrtmmkEU6QXiJP9AVlc.5SQVLTSrG6kWTDg0Y0EyJBzdMX/KWru', '', 'Pengelola', NULL, '2025-10-04 18:25:32'),
+('PelakuKomersil@gmail.com', '$2a$12$pd0wjRxHx9NzMAtGznOlre7oAZKrJgGsKMabk8VEkmSwA0vOGt6Xy', '', 'PelakuKomersil', NULL, '2025-10-04 18:40:28');
 
 -- --------------------------------------------------------
 

@@ -77,14 +77,13 @@ async function seed() {
       ]);
     }
     // Add Admin
-    // users.push([faker.internet.email(), faker.internet.password(), faker.string.numeric(13), 'ketua agen', faker.person.fullName()]);
+    // users.push([faker.internet.email(), faker.internet.password(), faker.string.numeric(13), 'Pengelola', faker.person.fullName()]);
 
     await connection.query(`INSERT INTO users (email, password, nib, role, name) VALUES ?`, [users]);
     await connection.query(`
       INSERT INTO \`users\` (\`email\`, \`password\`, \`nib\`, \`role\`,name, \`created_at\`) VALUES
-      ('ketua_agen@gmail.com', '$2a$12$gi8waPwYFYunLlAaLavLZ.yp1t/DAe8NuC7a1kDrOr3x6Wnf7PGre', '', 'ketua agen','ketua', '2025-10-04 18:25:32'),
-      ('p3srs@gmail.com', '$2a$12$pd0wjRxHx9NzMAtGznOlre7oAZKrJgGsKMabk8VEkmSwA0vOGt6Xy', '', 'p3srs','p3srs', '2025-10-04 18:40:28'),
-      ('pkj@gmail.com', '$2a$12$1N5x3qJ0ojNC7hz7HOh2RujSBLrpI/WrM4Z05dLDsn97Hl1qUpzhq', '', 'pkj','pkj', '2025-10-04 18:40:28');
+      ('ketua_agen@gmail.com', '$2a$12$gi8waPwYFYunLlAaLavLZ.yp1t/DAe8NuC7a1kDrOr3x6Wnf7PGre', '', 'Pengelola','ketua', '2025-10-04 18:25:32'),
+      ('PelakuKomersil@gmail.com', '$2a$12$pd0wjRxHx9NzMAtGznOlre7oAZKrJgGsKMabk8VEkmSwA0vOGt6Xy', '', 'PelakuKomersil','PelakuKomersil', '2025-10-04 18:40:28');
     `);
     // Fetch emails for child tables
     const [userRows] = await connection.query('SELECT email FROM users');

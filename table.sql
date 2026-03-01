@@ -12,7 +12,7 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password TEXT NOT NULL,
     nib VARCHAR(13) NULL,
-    role ENUM('ketua agen','agen','p3srs','pkj') NOT NULL,
+    role ENUM('Pengelola','agen','PelakuKomersil') NOT NULL,
     name VARCHAR(100) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
