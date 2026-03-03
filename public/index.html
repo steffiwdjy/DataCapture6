@@ -568,7 +568,7 @@
       const sessionParam = urlParams.get('session');
       if (sessionParam) {
         try {
-          const decoded = decodeURIComponent(escape(atob(sessionParam)));
+          const decoded = decodeURIComponent(atob(sessionParam));
           const userSession = JSON.parse(decoded);
           if (userSession?.AuthKey) {
             localStorage.setItem('token', userSession.AuthKey);
