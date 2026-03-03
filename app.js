@@ -69,43 +69,6 @@ const checkAdmin = (req, res, next) => {
 };
 
 // ================== AUTHENTICATION ==================
-app.post('/api/signup', async (req, res) => {
-  const { email, nama, no_unit, no_telp, alamat } = req.body;
-  if (!email || !nama || !no_unit) {
-    return res.status(400).json({ success: false, message: "Data tidak valid. Pastikan email, nama, dan no_unit diisi." });
-  }
-
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-
-    const [existingUser] = await conn.query('SELECT email FROM pengguna WHERE email = ?', [email]);
-    if (existingUser.length > 0) {
-      await conn.rollback();
-      conn.release();
-      return res.status(409).json({ success: false, message: "Email sudah terdaftar." });
-    }
-
-    const kode_user = `${nama.split(' ')[0]} ${no_unit}`;
-    const [result] = await conn.query(
-      'INSERT INTO pengguna (kode_user, nama, no_unit, alamat, no_telp, email) VALUES (?, ?, ?, ?, ?, ?)',
-      [kode_user, nama, no_unit, alamat || null, no_telp || null, email]
-    );
-
-    await conn.query('INSERT INTO pengguna_role (user_id, role_id) VALUES (?, ?)', [result.insertId, 2]);
-
-    await conn.commit();
-    conn.release();
-    res.json({ success: true, message: "Registrasi berhasil! Silakan login." });
-
-  } catch (error) {
-    if (conn) await conn.rollback();
-    if (conn) conn.release();
-    console.error("Signup Error:", error);
-    res.status(500).json({ success: false, message: "Server error saat registrasi." });
-  }
-});
-
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {

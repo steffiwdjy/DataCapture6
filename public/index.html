@@ -324,24 +324,7 @@
       <h1 class="title">Rusunami The Jarrdin Cihampelas</h1>
     </div>
 
-    <div id="auth-section">
-      <div id="login-page">
-        <h2>🔐 Login</h2>
-        <div class="form-group"><label>Email</label><input type="email" id="login-email"></div>
-        <button onclick="login()">Login</button>
-        <p>Belum punya akun? <a href="#" onclick="showSignup()">Daftar di sini</a></p>
-      </div>
-      <div id="signup-page" class="hidden">
-        <h2>📝 Daftar Agen Baru</h2>
-        <div class="form-group"><label>Nama Lengkap</label><input type="text" id="signup-nama" required></div>
-        <div class="form-group"><label>Email</label><input type="email" id="signup-email"></div>
-        <div class="form-group"><label>No. Telepon</label><input type="text" id="signup-notelp"></div>
-        <div class="form-group"><label>No. Unit</label><input type="text" id="signup-nounit" required placeholder="Contoh: B2027"></div>
-        <div class="form-group"><label>Alamat</label><input type="text" id="signup-alamat"></div>
-        <button onclick="signup()">Daftar</button>
-        <p>Sudah punya akun? <a href="#" onclick="showLogin()">Login di sini</a></p>
-      </div>
-    </div>
+
 
     <div id="main-section" class="hidden">
       <button id="toggle-sidebar" class="toggle-btn">☰</button>
@@ -573,8 +556,32 @@
     });
 
     async function checkAuthStatus() {
+      // Accept token from OTP redirect via URL param (?token=xxx)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        localStorage.setItem('token', urlToken);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      // Accept session forwarded from SRusun-WebMember (?session=base64encodedJSON)
+      const sessionParam = urlParams.get('session');
+      if (sessionParam) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(sessionParam)));
+          const userSession = JSON.parse(decoded);
+          if (userSession?.AuthKey) {
+            localStorage.setItem('token', userSession.AuthKey);
+            localStorage.setItem('userSession', decoded);
+          }
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch (e) {
+          console.error('Failed to parse session param', e);
+        }
+      }
+
       const token = localStorage.getItem('token');
-      if (!token) { showAuthSection(); return; }
+      if (!token) { window.location.href = '/login'; return; }
       try {
         const response = await fetch('/api/user', { headers: getAuthHeaders() });
         const data = await response.json();
@@ -583,7 +590,7 @@
           showMainSection();
         } else {
           localStorage.removeItem('token');
-          showAuthSection();
+          window.location.href = '/login';
         }
       } catch (error) {
         showAlert('Gagal terhubung ke server.', 'danger');
@@ -600,56 +607,11 @@
       calculateCheckoutAndDuration();
     }
 
-    async function login() {
-      const email = document.getElementById('login-email').value;
-      try {
-        const response = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
-        });
-        const data = await response.json();
-        if (data.success) {
-          localStorage.setItem('token', data.token);
-          currentUser = data.user;
-          showMainSection();
-        } else {
-          showAlert(data.message, 'danger');
-        }
-      } catch (error) {
-        showAlert('Error saat login.', 'danger');
-      }
-    }
-
-    async function signup() {
-      const email = document.getElementById('signup-email').value;
-      const nama = document.getElementById('signup-nama').value;
-      const no_unit = document.getElementById('signup-nounit').value;
-      const no_telp = document.getElementById('signup-notelp').value;
-      const alamat = document.getElementById('signup-alamat').value;
-      try {
-        const response = await fetch('/api/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, nama, no_unit, no_telp, alamat })
-        });
-        const data = await response.json();
-        if (data.success) {
-          showAlert(data.message, 'success');
-          showLogin();
-        } else {
-          showAlert(data.message, 'danger');
-        }
-      } catch (error) {
-        showAlert('Error saat mendaftar.', 'danger');
-      }
-    }
-
     async function logout() {
       await fetch('/api/logout', { method: 'POST', headers: getAuthHeaders() });
       localStorage.removeItem('token');
       currentUser = null;
-      window.location.reload();
+      window.location.href = '/login';
     }
 
     function showPage(pageId) {
@@ -675,13 +637,7 @@
       if (pageId === 'unit-management-section') loadAgentsForManagement();
     }
 
-    function showAuthSection() {
-      document.getElementById('auth-section').classList.remove('hidden');
-      document.getElementById('main-section').classList.add('hidden');
-    }
-
     function showMainSection() {
-      document.getElementById('auth-section').classList.add('hidden');
       document.getElementById('main-section').classList.remove('hidden');
       document.getElementById('user-info').innerHTML = `👤 <strong>${currentUser.nama || currentUser.email}</strong><br><small>${currentUser.email}</small>`;
 
@@ -693,15 +649,7 @@
       showPage('dashboard-section');
     }
 
-    function showLogin() {
-      document.getElementById('login-page').classList.remove('hidden');
-      document.getElementById('signup-page').classList.add('hidden');
-    }
 
-    function showSignup() {
-      document.getElementById('login-page').classList.add('hidden');
-      document.getElementById('signup-page').classList.remove('hidden');
-    }
 
     function toggleMetodeLain() {
       document.getElementById('metode-lain-group').classList.toggle('hidden', document.getElementById('metode_pembayaran').value !== 'Others');
