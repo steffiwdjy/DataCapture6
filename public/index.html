@@ -540,7 +540,9 @@
     let rentedUnitsChart, topUnitsChart, rentedUnitsByAgentChart, topUnitsByAgentChart;
 
     function getAuthHeaders(extra = {}) {
-      return { 'Authorization': 'Bearer ' + (localStorage.getItem('token') || ''), ...extra };
+      const session = JSON.parse(localStorage.getItem('userSession') || 'null');
+      const token = session?.token || '';
+      return { 'Authorization': 'Bearer ' + token, ...extra };
     }
 
     function isUserAdmin(user) {
@@ -560,7 +562,15 @@
       const urlParams = new URLSearchParams(window.location.search);
       const urlToken = urlParams.get('token');
       if (urlToken) {
-        localStorage.setItem('token', urlToken);
+        try {
+          const decodedToken = decodeURIComponent(atob(urlToken));
+          // decodedToken is the raw JWT; decode its payload for the object
+          const payloadB64 = decodedToken.split('.')[1];
+          const payloadObj = payloadB64 ? JSON.parse(atob(payloadB64)) : {};
+          localStorage.setItem('userSession', JSON.stringify({ token: decodedToken, object: payloadObj }));
+        } catch (e) {
+          console.error('Failed to decode token param', e);
+        }
         window.history.replaceState({}, '', window.location.pathname);
       }
 
@@ -569,10 +579,9 @@
       if (sessionParam) {
         try {
           const decoded = decodeURIComponent(atob(sessionParam));
-          const userSession = JSON.parse(decoded);
-          if (userSession?.AuthKey) {
-            localStorage.setItem('token', userSession.AuthKey);
-            localStorage.setItem('userSession', decoded);
+          const sessionObj = JSON.parse(decoded);
+          if (sessionObj?.AuthKey) {
+            localStorage.setItem('userSession', JSON.stringify({ token: sessionObj.AuthKey, object: sessionObj }));
           }
           window.history.replaceState({}, '', window.location.pathname);
         } catch (e) {
@@ -580,7 +589,8 @@
         }
       }
 
-      const token = localStorage.getItem('token');
+      const session = JSON.parse(localStorage.getItem('userSession') || 'null');
+      const token = session?.token;
       if (!token) { window.location.href = '/login'; return; }
       try {
         const response = await fetch('/api/user', { headers: getAuthHeaders() });
@@ -589,7 +599,7 @@
           currentUser = data.user;
           showMainSection();
         } else {
-          localStorage.removeItem('token');
+          localStorage.removeItem('userSession');
           window.location.href = '/login';
         }
       } catch (error) {
@@ -609,7 +619,7 @@
 
     async function logout() {
       await fetch('/api/logout', { method: 'POST', headers: getAuthHeaders() });
-      localStorage.removeItem('token');
+      localStorage.removeItem('userSession');
       currentUser = null;
       window.location.href = '/login';
     }
@@ -960,18 +970,18 @@
     }
 
     function downloadRentalsCSV() {
-      const token = localStorage.getItem('token') || '';
+      const token = JSON.parse(localStorage.getItem('userSession') || 'null')?.token || '';
       window.location.href = `/api/rentals/csv?token=${token}`;
     }
 
     function downloadAllLogsCSV() {
-      const token = localStorage.getItem('token') || '';
+      const token = JSON.parse(localStorage.getItem('userSession') || 'null')?.token || '';
       window.location.href = `/api/logs/csv?token=${token}`;
     }
 
     function downloadTenantLogCSV(rentalId) {
       if (!rentalId) return;
-      const token = localStorage.getItem('token') || '';
+      const token = JSON.parse(localStorage.getItem('userSession') || 'null')?.token || '';
       window.location.href = `/api/rentals/${rentalId}/log/csv?token=${token}`;
     }
 

@@ -12,7 +12,7 @@ const { Parser } = require('json2csv');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 7000;
+const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-key-jarrdin';
 
 // --- File Upload Configuration ---
@@ -878,6 +878,11 @@ app.get('/api/pelanggaran-list', checkAuth, (req, res) => {
   } else {
     res.json({ success: true, data: listForAgen });
   }
+});
+
+// Login page (served separately to avoid redirect loop)
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 // Fallback Route
