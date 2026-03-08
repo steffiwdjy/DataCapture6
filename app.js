@@ -64,14 +64,15 @@ const checkAuth = (req, res, next) => {
     }
   }
 
-  // Normalize: SRusun JWT has UserID + Role (array of objects); Data Capture JWT has id + roles (array of strings)
-  if (decoded.UserID !== undefined && Array.isArray(decoded.Role)) {
+  // Normalize: SRusun JWT has Role (array of objects); Data Capture JWT has roles (array of strings)
+  // Use Array.isArray(decoded.Role) as the primary SRusun detector — more robust than checking UserID
+  if (Array.isArray(decoded.Role)) {
     req.user = {
-      id: decoded.UserID,
+      id: decoded.UserID ?? decoded.userId,
       nama: decoded.Nama,
       email: decoded.Email,
       no_telp: decoded.NoTelp,
-      roles: decoded.Role.map(r => r.Nama),
+      roles: decoded.Role.map(r => (typeof r === 'object' ? r.Nama : r)),
       fitur: decoded.Fitur || [],
       _source: 'srusun'
     };
@@ -83,12 +84,21 @@ const checkAuth = (req, res, next) => {
 
 // SRusun roles: 'Pengelola' has admin access, 'Pelaku Komersil' has regular access
 const ADMIN_ROLES = ['Pengelola'];
-const isAdmin = (user) => user && user.roles && user.roles.some(r => ADMIN_ROLES.includes(r));
+const isAdmin = (user) => {
+  if (!user) return false;
+  // Handle normalized format: roles is array of strings (set by checkAuth normalization)
+  if (user.roles && user.roles.some(r => ADMIN_ROLES.includes(r))) return true;
+  // Handle raw SRusun format: Role is array of objects/strings (fallback if normalization didn't run)
+  if (Array.isArray(user.Role) && user.Role.some(r => ADMIN_ROLES.includes(typeof r === 'object' ? r.Nama : r))) return true;
+  return false;
+};
 const checkAdmin = (req, res, next) => {
-  if (!isAdmin(req.user)) {
-    return res.status(403).json({ success: false, message: "Akses ditolak. Fitur ini hanya untuk admin." });
-  }
-  next();
+  checkAuth(req, res, () => {
+    if (!isAdmin(req.user)) {
+      return res.status(403).json({ success: false, message: "Akses ditolak. Fitur ini hanya untuk admin." });
+    }
+    next();
+  });
 };
 
 // ================== AUTHENTICATION ==================

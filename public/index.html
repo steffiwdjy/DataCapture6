@@ -582,7 +582,7 @@
             <div class="sidebar-user-info" id="sidebar-user-info">
               <p>Selamat datang,</p>
               <p class="user-name" id="sidebar-user-name">...</p>
-              <p class="user-role" id="sidebar-user-role" style="font-size:0.72rem;color:#666;margin:0;line-height:1.4;"></p>
+              <p class="user-role" id="sidebar-user-role" style="display:none;"></p>
             </div>
             <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()">&#9776;</button>
           </div>
@@ -717,11 +717,11 @@
               <canvas id="topUnitsChart"></canvas>
               <div id="admin-stats-container" class="admin-only" style="margin-top:16px; display:none;">
                 <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
-                <h3 style="font-size:15px; font-weight:600; margin-bottom:8px;">Statistik Detail Setiap Agen</h3>
-                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Jumlah Unit Disewakan (per Agen)</h4>
+                <h3 style="font-size:15px; font-weight:600; margin-bottom:8px;">Statistik Detail Setiap Pelaku Komersil</h3>
+                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Jumlah Unit Disewakan (per Pelaku Komersil)</h4>
                 <canvas id="rentedUnitsByAgentChart"></canvas>
                 <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
-                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Top 5 Unit Populer (per Agen)</h4>
+                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Top 5 Unit Populer (per Pelaku Komersil)</h4>
                 <canvas id="topUnitsByAgentChart"></canvas>
               </div>
             </div>
@@ -743,10 +743,10 @@
         <!-- UNIT MANAGEMENT -->
         <div id="unit-management-section" class="page-content">
           <div class="page-title-bar">
-            <h2>🏢 Manajemen Unit Agen</h2>
+            <h2>🏢 Manajemen Unit Pelaku Komersil</h2>
           </div>
           <div class="form-group">
-            <label>Pilih Agen</label>
+            <label>Pilih Pelaku Komersil</label>
             <select id="manage-agent-select" onchange="loadUnitsForAgent()"></select>
           </div>
           <div id="unit-list-container"></div>
@@ -808,9 +808,15 @@
     }
 
     function isUserAdmin(user) {
-      if (!user || !user.roles) return false;
+      if (!user) return false;
+      // Normalize: handle both server-normalized (roles, string[]) and raw SRusun format (Role, object[])
+      let rolesArr = user.roles;
+      if (!rolesArr && Array.isArray(user.Role)) {
+        rolesArr = user.Role.map(r => (typeof r === 'object' ? r.Nama : r));
+      }
+      if (!rolesArr || rolesArr.length === 0) return false;
       // SRusun roles: 'Pengelola' = admin, 'Pelaku Komersil' = regular user
-      return user.roles.includes('Pengelola');
+      return rolesArr.some(r => (typeof r === 'object' ? r.Nama : r) === 'Pengelola');
     }
 
 
@@ -975,13 +981,7 @@
       const userNameEl = document.getElementById('sidebar-user-name');
       if (userNameEl) userNameEl.textContent = displayName;
 
-      // Display role(s) — supports both Data Capture format (array of strings)
-      // and SRusun format (array of objects with Nama, or already-mapped strings)
-      const userRoleEl = document.getElementById('sidebar-user-role');
-      if (userRoleEl && currentUser.roles) {
-        const roleLabels = currentUser.roles.map(r => (typeof r === 'object' ? r.Nama : r));
-        userRoleEl.textContent = roleLabels.join(' · ');
-      }
+      // Role display is intentionally hidden in the sidebar
 
       const isAdmin = isUserAdmin(currentUser);
       if (isAdmin) {
@@ -1124,7 +1124,7 @@
       let paginationData;
 
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: getAuthHeaders() });
         const result = await response.json();
 
         if (!result.success) {
@@ -1160,7 +1160,7 @@
       let tableHTML = `<table class="table"><thead><tr>
                 <th>NIK</th><th>Nama</th><th>Kewarganegaraan</th><th>Status Perkawinan</th><th>Unit</th><th>Jenis Sewa</th>
                 <th>Metode Pembayaran</th><th>Tgl Check In</th><th>Waktu Check In</th><th>Tgl Check Out</th><th>Waktu Checkout</th><th>Lama (Hari)</th>
-                <th>Komentar</th><th>Email Agen</th><th>Diedit Oleh</th><th>Log</th>
+                <th>Komentar</th><th>Email Pelaku Komersil</th><th>Diedit Oleh</th><th>Log</th>
             </tr></thead><tbody>`;
 
       responseData.forEach(r => {
@@ -1396,7 +1396,7 @@
           const agentPerfData = await agentPerfResponse.json();
 
           if (agentPerfData.success) {
-            // Chart 3: Jumlah Sewa per Agen (Bar)
+            // Chart 3: Jumlah Sewa per Pelaku Komersil (Bar)
             // Kita gunakan data dari /agent-performance
             const agentLabels = agentPerfData.data.map(a => a.user_email);
             const agentTotals = agentPerfData.data.map(a => a.total_rented);
@@ -1415,17 +1415,17 @@
               options: { indexAxis: 'y' }
             });
           } else {
-            showAlert('Gagal memuat performa agen.', 'danger');
+            showAlert('Gagal memuat performa Pelaku Komersil.', 'danger');
           }
 
-          // Chart 4: Top 5 Unit (dengan info Agen)
+          // Chart 4: Top 5 Unit (dengan info Pelaku Komersil)
           // Kita gunakan data dari /popular-units
           if (popData.success) {
             const topUnitsByAgentCanvas = document.getElementById('topUnitsByAgentChart');
             topUnitsByAgentChart = new Chart(topUnitsByAgentCanvas, {
               type: 'bar',
               data: {
-                labels: popData.labels.map((label, index) => `${label} (${popData.agents[index] || 'N/A'})`), // Gabung label unit + agen
+                labels: popData.labels.map((label, index) => `${label} (${popData.agents[index] || 'N/A'})`), // Gabung label unit + Pelaku Komersil
                 datasets: [{
                   label: 'Jumlah Sewa',
                   data: popData.data,
@@ -1620,11 +1620,11 @@
 
     async function loadAgentsForManagement() {
       const select = document.getElementById('manage-agent-select');
-      select.innerHTML = '<option>Memuat agen...</option>';
+      select.innerHTML = '<option>Memuat Pelaku Komersil...</option>';
       const response = await fetch('/api/agents', { headers: getAuthHeaders() });
       const result = await response.json();
       if (result.success) {
-        select.innerHTML = '<option value="">Pilih Agen</option>';
+        select.innerHTML = '<option value="">Pilih Pelaku Komersil</option>';
         result.data.forEach(agent => {
           select.innerHTML += `<option value="${agent.email}">${agent.email}</option>`;
         });
