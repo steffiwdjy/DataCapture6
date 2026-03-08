@@ -35,13 +35,25 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 app.use('/uploads', express.static('public/uploads'));
 
+// Remote SRusun DB — used for: rentals, rental_logs, units, violations
 const pool = mysql.createPool({
+  host: process.env.SRUSUN_MYSQL_HOST,
+  user: process.env.SRUSUN_MYSQL_USER,
+  password: process.env.SRUSUN_MYSQL_PASSWORD,
+  database: process.env.SRUSUN_MYSQL_DATABASE,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
+// Local DB — used for: pengguna, pengguna_role, role (auth only)
+const localPool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DATABASE,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: 5,
   queueLimit: 0
 });
 
@@ -105,7 +117,7 @@ const checkAdmin = (req, res, next) => {
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await localPool.query(`
       SELECT p.*, GROUP_CONCAT(r.nama) as role_names
       FROM pengguna p
       LEFT JOIN pengguna_role pr ON p.id = pr.user_id
@@ -631,7 +643,7 @@ async function getOccupiedUnits() {
 
 
 async function getAgentIdByEmail(email) {
-  const conn = await pool.getConnection();
+  const conn = await localPool.getConnection();
   try {
     const [rows] = await conn.query("SELECT id FROM pengguna WHERE email = ?", [email]);
     return rows.length > 0 ? rows[0].id : null;
@@ -651,7 +663,7 @@ function parseUnitNumber(unit_number) {
 
 app.get('/api/agents', checkAdmin, async (req, res) => {
   try {
-    const [agents] = await pool.query(`
+    const [agents] = await localPool.query(`
       SELECT p.email FROM pengguna p
       INNER JOIN pengguna_role pr ON p.id = pr.user_id
       INNER JOIN role r ON pr.role_id = r.id
