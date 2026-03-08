@@ -6,134 +6,357 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rusunami The Jarrdin Cihampelas</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f5f5f5;
+    :root {
+      --theme: #bb2c2f;
+      --themeSubtle: #f1f6f2;
+      --themeHover: #982426;
+      --themeTua: #aa2531;
+      --theme2: #daaf15;
+      --theme2Hover: #caa007;
+      --gradient-theme: linear-gradient(to right, var(--theme), var(--themeTua));
+      --box-shadow: 0px 4px 25px 0px rgba(0, 0, 0, 0.06);
+      --border: #d4dcff;
+      --sidebar-width: 240px;
+      --sidebar-collapsed-width: 64px;
     }
 
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 300px;
-      height: 100vh;
-      background-color: #323131 !important;
-      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-      padding: 20px;
+    * {
+      font-family: "Montserrat", sans-serif !important;
       box-sizing: border-box;
-      overflow-y: auto;
-      transition: transform 0.3s ease;
-      z-index: 1000;
-      color: white;
     }
 
-    .sidebar.hide {
-      transform: translateX(-100%);
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f3f7fb;
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
     }
 
-    .toggle-btn {
+    /* ── APP SHELL ── */
+    #app-shell {
+      display: flex;
+      width: 100%;
+      height: 100%;
       position: fixed;
-      top: 10px;
-      left: 10px;
-      background-color: #ffc107;
-      border: none;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: 20px;
-      z-index: 1100;
-      border-radius: 4px;
     }
 
-    #user-info {
-      font-weight: bold;
-      margin-top: 75px;
-      margin-bottom: 20px;
-      color: #ffffff;
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: relative;
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      height: 100%;
+      background-color: var(--themeSubtle);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 0;
+      transition: width 0.3s ease, min-width 0.3s ease;
+      overflow: hidden;
+      z-index: 100;
+    }
+
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed-width);
+      min-width: var(--sidebar-collapsed-width);
+    }
+
+    .sidebar-head {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .sidebar-toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-user-info {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-user-info p {
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+
+    .sidebar-user-info .user-name {
+      font-weight: 600;
       font-size: 14px;
     }
 
+    .sidebar.collapsed .sidebar-user-info {
+      display: none;
+    }
+
+    /* sidebar nav menu */
+    .sidebar-menu {
+      list-style: none;
+      margin: 16px 0 0 0;
+      padding: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow-y: auto;
+    }
+
+    .sidebar-menu li {
+      display: flex;
+    }
+
     .menu-item {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 10px;
-      border: 2px solid transparent;
-      background-color: #000000;
-      color: white;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 4px;
-      text-align: left;
-      transition: border-color 0.3s ease;
-    }
-
-    .menu-item:hover {
-      border-color: #ffa500;
-      background-color: #000;
-    }
-
-    .menu-item.active {
-      background-color: #005a09;
-      font-weight: bold;
-      color: white;
-    }
-
-    .btn-danger {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      background-color: #dc3545;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 20px;
-      font-size: 16px;
-    }
-
-    .main-content {
-      margin-left: 300px;
-      padding: 20px;
-      transition: margin-left 0.3s ease;
-    }
-
-    .sidebar.hide~.main-content {
-      margin-left: 20px;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background-color: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    .header {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 30px;
-      border-bottom: 3px solid #000000;
-      padding-bottom: 20px;
+      gap: 12px;
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      background-color: transparent;
+      color: #333;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      text-decoration: none;
+      border-radius: 0;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .menu-item .menu-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+      width: 22px;
       text-align: center;
     }
 
+    .menu-item .menu-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar.collapsed .menu-item .menu-label {
+      display: none;
+    }
+
+    .menu-item:hover {
+      background-color: #ffffff;
+      color: var(--theme);
+    }
+
+    .menu-item.active {
+      background-color: #ffffff;
+      color: var(--theme);
+      font-weight: 600;
+      border-right: 3px solid var(--theme);
+    }
+
+    .sidebar-footer {
+      padding: 0 16px;
+    }
+
+    /* toggle button inside sidebar */
+    .sidebar-toggle-btn {
+      background-color: var(--theme);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 16px;
+      flex-shrink: 0;
+      transition: background-color 0.2s;
+    }
+
+    .sidebar-toggle-btn:hover {
+      background-color: var(--themeHover);
+    }
+
+    .btn-logout {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 16px;
+      background-color: transparent;
+      color: #dc3545;
+      border: 1px solid #dc3545;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.2s, color 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .btn-logout:hover {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .sidebar.collapsed .btn-logout .menu-label {
+      display: none;
+    }
+
+    /* ── MAIN AREA ── */
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    /* Header bar (green top bar) */
+    .content-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background-color: var(--theme);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+
+    .content-header h5 {
+      margin: 0;
+      color: white;
+      font-weight: 500;
+      font-size: 15px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 6px;
+      padding: 5px 10px;
+      gap: 6px;
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: white;
+      font-size: 13px;
+      width: 180px;
+      padding: 0;
+    }
+
+    .search-box input::placeholder {
+      color: rgba(255,255,255,0.7);
+    }
+
+    .search-icon {
+      color: rgba(255,255,255,0.8);
+      font-size: 14px;
+    }
+
+    .btn-insert-header {
+      background-color: var(--theme2);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-insert-header:hover {
+      background-color: var(--theme2Hover);
+    }
+
+    /* divider line below header */
+    .header-divider {
+      height: 1px;
+      background-color: #ACACAC;
+      flex-shrink: 0;
+    }
+
+    /* Scrollable content area */
+    .content-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      background-color: white;
+    }
+
+    /* ── PAGE TITLE AREA ── */
+    .page-title-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .page-title-bar h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    /* ── FORMS ── */
+    .container {
+      max-width: 100%;
+      margin: 0;
+      background-color: white;
+      padding: 0;
+    }
+
+    /* The old top header (logo + title) shown only on login page - hidden in app */
+    .app-top-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      border-bottom: 3px solid var(--theme);
+      padding-bottom: 16px;
+    }
+
     .logo {
-      width: 80px;
-      height: 80px;
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
       object-fit: cover;
     }
 
     .title {
       margin: 0;
-      color: #008000;
-      text-shadow: 0.5px 0.5px 0px white;
+      color: var(--theme);
+      font-size: 20px;
+      font-weight: 700;
     }
 
     .form-group {
@@ -143,54 +366,71 @@
     label {
       display: block;
       margin-bottom: 5px;
-      font-weight: bold;
+      font-weight: 600;
+      font-size: 13px;
+      color: #444;
     }
 
     input,
     select,
     textarea {
       width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--theme);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(57, 144, 81, 0.15);
     }
 
     button {
-      background-color: #007bff;
+      background-color: var(--theme);
       color: white;
-      padding: 10px 15px;
+      padding: 8px 16px;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      margin: 5px;
+      margin: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background-color 0.2s;
     }
 
     button:hover {
-      background-color: #0056b3;
+      background-color: var(--themeHover);
     }
 
     .btn-danger {
-      background-color: #dc3545;
+      background-color: #dc3545 !important;
+      color: white !important;
     }
 
     .btn-danger:hover {
-      background-color: #c82333;
+      background-color: #c82333 !important;
     }
 
     .btn-success {
-      background-color: #28a745;
+      background-color: var(--theme) !important;
+      color: white !important;
     }
 
     .btn-success:hover {
-      background-color: #218838;
+      background-color: var(--themeHover) !important;
     }
 
     .alert {
-      padding: 15px;
-      margin-bottom: 20px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
       border: 1px solid transparent;
-      border-radius: 4px;
+      border-radius: 6px;
+      font-size: 13px;
     }
 
     .alert-success {
@@ -211,140 +451,179 @@
       border-color: #bee5eb;
     }
 
+    /* ── TABLE ── */
     .table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 20px;
-      font-size: 0.9em;
+      margin-top: 12px;
+      font-size: 13px;
     }
 
     .table th,
     .table td {
-      border: 1px solid #ddd;
-      padding: 8px;
+      border: 1px solid #f0f0f0;
+      padding: 10px 12px;
       text-align: left;
       white-space: nowrap;
-      /* This prevents text from wrapping to the next line */
       vertical-align: middle;
-      /* This vertically aligns content in the middle */
     }
 
     .table th {
-      background-color: #f2f2f2;
+      background-color: var(--themeSubtle);
+      color: #333;
+      font-weight: 600;
+    }
+
+    .table tbody tr:hover {
+      background-color: #fafafa;
     }
 
     .hidden {
       display: none;
     }
 
-    .menu-title {
-      margin-top: 20px;
-      margin-bottom: 15px;
-      font-size: 20px;
-      font-weight: bold;
-      color: white;
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 5px;
-      padding-left: 20px;
-    }
-
-    .menu-box {
-      background-color: #000;
-      padding: 10px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      padding-right: 20px;
-    }
+    /* removed old menu-title / menu-box from sidebar – not needed */
+    .menu-title { display: none; }
+    .menu-box { display: none; }
 
     .admin-only {
-      display: none;
+      display: none !important;
     }
 
     .dashboard-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
       gap: 20px;
     }
 
     .dashboard-card {
-      background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      border-radius: 5px;
-      padding: 15px;
+      background-color: #fafafa;
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      padding: 18px;
     }
 
-
+    /* ── PAGINATION ── */
     .pagination-container {
-      margin: 20px 0;
-      text-align: center;
+      margin: 16px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      flex-wrap: wrap;
     }
 
     .pagination-container button {
       margin: 2px;
-      padding: 8px 12px;
-      font-size: 0.9em;
+      padding: 6px 12px;
+      font-size: 13px;
+      background-color: white;
+      color: #333;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+    }
+
+    .pagination-container button:hover {
+      border-color: var(--theme);
+      color: var(--theme);
+      background-color: white;
     }
 
     .pagination-container button.active {
-      background-color: #0056b3;
-      /* Warna aktif */
-      font-weight: bold;
+      background-color: var(--theme);
+      color: white;
+      border-color: var(--theme);
+      font-weight: 600;
     }
 
     .pagination-container button:disabled {
-      background-color: #e9ecef;
-      color: #6c757d;
+      background-color: #f5f5f5;
+      color: #bbb;
+      border-color: #d9d9d9;
       cursor: not-allowed;
-      opacity: 0.65;
+      opacity: 0.8;
     }
 
     .pagination-container .pagination-info {
-      margin-left: 15px;
-      font-size: 0.9em;
-      color: #555;
-      vertical-align: middle;
+      margin-left: 12px;
+      font-size: 13px;
+      color: #666;
     }
 
     .pagination-container span.page-ellipsis {
-      display: inline-block;
-      padding: 8px;
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 8px;
       margin: 2px;
-      color: #6c757d;
-      vertical-align: middle;
+      color: #666;
     }
+
+    /* ── SCROLLBAR ── */
+    .content-body::-webkit-scrollbar { width: 6px; }
+    .content-body::-webkit-scrollbar-track { background: transparent; }
+    .content-body::-webkit-scrollbar-thumb { background-color: #ccc; border-radius: 4px; }
+    .content-body::-webkit-scrollbar-thumb:hover { background-color: #aaa; }
+
+    /* ── PAGE CONTENT (inner) ── */
+    .page-content { display: none; }
+    .page-content.active-page { display: block; }
   </style>
 </head>
 
 <body>
-  <div class="container">
-    <div class="header">
-      <img
-        src="data:image/png;base64,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"
-        class="logo" alt="Logo" id="logo-img" />
-      <h1 class="title">Rusunami The Jarrdin Cihampelas</h1>
-    </div>
 
-
-
-    <div id="main-section" class="hidden">
-      <button id="toggle-sidebar" class="toggle-btn">☰</button>
-      <div class="sidebar" id="sidebar">
-        <div id="user-info"></div>
-        <div class="menu-box">
-          <h3 class="menu-title">MENU</h3>
-          <button class="menu-item" id="menu-dashboard" onclick="showPage('dashboard-section')">📈 Dashboard</button>
-          <button class="menu-item" id="menu-input" onclick="showPage('input-form-section')">📋 Input Data
-            Penyewa</button>
-          <button class="menu-item" id="menu-view" onclick="showPage('view-data-section')">📊 Lihat/Edit Data</button>
-          <button class="menu-item admin-only" id="menu-units" onclick="showPage('unit-management-section')">🏢
-            Manajemen Unit</button>
+  <!-- ── APP SHELL (shown after login) ── -->
+  <div id="app-shell" style="display:none;">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div>
+        <div class="sidebar-head">
+          <div class="sidebar-toggle-row">
+            <div class="sidebar-user-info" id="sidebar-user-info">
+              <p>Selamat datang,</p>
+              <p class="user-name" id="sidebar-user-name">...</p>
+              <p class="user-role" id="sidebar-user-role" style="font-size:0.72rem;color:#666;margin:0;line-height:1.4;"></p>
+            </div>
+            <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" onclick="toggleSidebar()">&#9776;</button>
+          </div>
         </div>
-        <button class="btn-danger" onclick="logout()">Logout</button>
+        <ul class="sidebar-menu">
+          <li><a class="menu-item" href="http://localhost:5173/" target="_blank"><span class="menu-icon">🏠</span><span class="menu-label">Home</span></a></li>
+          <li><button class="menu-item" id="menu-dashboard" onclick="showPage('dashboard-section')"><span class="menu-icon">📈</span><span class="menu-label">Dashboard</span></button></li>
+          <li><button class="menu-item" id="menu-input" onclick="showPage('input-form-section')"><span class="menu-icon">📋</span><span class="menu-label">Input Data Penyewa</span></button></li>
+          <li><button class="menu-item" id="menu-view" onclick="showPage('view-data-section')"><span class="menu-icon">📊</span><span class="menu-label">Lihat / Edit Data</span></button></li>
+          <li><button class="menu-item admin-only" id="menu-units" onclick="showPage('unit-management-section')"><span class="menu-icon">🏢</span><span class="menu-label">Manajemen Unit</span></button></li>
+        </ul>
       </div>
 
-      <div class="main-content">
-        <div id="input-form-section" class="page-content hidden">
-          <h2>📋 Form Input Data Penyewa</h2>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main-area">
+      <!-- GREEN HEADER -->
+      <div class="content-header" id="content-header">
+        <h5 id="page-title-display">Penyewaan Unit</h5>
+        <div class="header-actions">
+          <div class="search-box" id="header-search-box" style="display:none;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="header-search-input" placeholder="Cari..." oninput="onHeaderSearch(this.value)" />
+          </div>
+          <button class="btn-insert-header" id="header-insert-btn" style="display:none;" onclick="showPage('input-form-section')">
+            + Tambah Data Penyewa
+          </button>
+        </div>
+      </div>
+      <!-- DIVIDER -->
+      <div class="header-divider"></div>
+
+      <!-- SCROLLABLE CONTENT -->
+      <div class="content-body">
+
+        <!-- INPUT FORM -->
+        <div id="input-form-section" class="page-content">
+          <div class="page-title-bar">
+            <h2>📋 Form Input Data Penyewa</h2>
+          </div>
           <form id="rental-input-form">
             <div class="form-group"><label>Nama Penyewa</label><input type="text" id="nama" required></div>
             <div class="form-group"><label>NIK</label><input type="text" id="nik_input" pattern="\d{16}"
@@ -355,16 +634,12 @@
                 <option value="Ya">Ya</option>
               </select>
             </div>
-            <div class="form-group"><label>Pilih Unit</label><select id="unit-select" onchange="populateUnitFields()"
-                required>
+            <div class="form-group"><label>Pilih Unit</label><select id="unit-select" onchange="populateUnitFields()" required>
                 <option value="">Memuat unit...</option>
               </select></div>
             <div class="form-group hidden"><label>Tower</label><input type="text" id="tower" readonly></div>
             <div class="form-group hidden"><label>Lantai</label><input type="text" id="lantai" readonly></div>
             <div class="form-group hidden"><label>Nomor Unit</label><input type="text" id="unit" readonly></div>
-
-
-
             <div class="form-group"><label>Kewarganegaraan</label><select id="status_kewarganegaraan">
                 <option>WNI</option>
                 <option>WNA</option>
@@ -396,83 +671,68 @@
           </form>
         </div>
 
-        <div id="view-data-section" class="page-content hidden">
-          <h2>📊 Data Penyewa</h2>
-
-          <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
-            <div style="display: flex; gap: 10px;">
-              <button class="btn-success" onclick="downloadRentalsCSV()" style="flex: 1; margin: 0;">📥 Download Data
-                Penyewa</button>
-              <button class="btn-success" onclick="downloadAllLogsCSV()" style="flex: 1; margin: 0;">📜 Download Semua
-                Log</button>
-              <button class="admin-only" onclick="checkDuplicates()" style="flex: 1; margin: 0;">🔍 Cek Data
-                Duplikat</button>
-              <button onclick="loadRentalsData('default',true)" style="flex: 1; margin: 0;">🔄 Refresh Tabel</button>
-            </div>
-            <div class="admin-only" style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" id="comment-filter" onchange="loadRentalsData('default', true)"
-                style="width: auto; margin: 0;">
-
-              <label for="comment-filter" style="margin: 0; font-weight: normal; white-space: nowrap;">Tampilkan data
-                dengan pelanggaran saja</label>
+        <!-- VIEW / EDIT DATA -->
+        <div id="view-data-section" class="page-content">
+          <div class="page-title-bar">
+            <h2>📊 Data Penyewa</h2>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn-success" onclick="downloadRentalsCSV()" style="margin:0;">📥 Download Data Penyewa</button>
+              <button class="btn-success" onclick="downloadAllLogsCSV()" style="margin:0;">📜 Download Semua Log</button>
+              <button class="admin-only" onclick="checkDuplicates()" style="margin:0;">🔍 Cek Duplikat</button>
+              <button onclick="loadRentalsData('default',true)" style="margin:0;">🔄 Refresh</button>
             </div>
           </div>
-          <div id="rentals-table" style="overflow-x: auto;"></div>
-          <hr>
+          <div class="admin-only" style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+            <input type="checkbox" id="comment-filter" onchange="loadRentalsData('default', true)" style="width:auto; margin:0;">
+            <label for="comment-filter" style="margin:0; font-weight:normal; white-space:nowrap; font-size:13px;">Tampilkan data dengan pelanggaran saja</label>
+          </div>
           <div id="pagination-controls-top" class="pagination-container"></div>
           <div id="rentals-table" style="overflow-x: auto;"></div>
-          <hr>
-          <h3>📝 Edit Data Penyewa</h3>
+          <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
+          <h3 style="font-size:15px; margin-bottom:12px;">📝 Edit Data Penyewa</h3>
           <div id="rentals-expanders"></div>
           <div id="pagination-controls-bottom" class="pagination-container"></div>
         </div>
 
+        <!-- DASHBOARD -->
         <div id="dashboard-section" class="page-content">
-          <h2>📈 Dashboard</h2>
+          <div class="page-title-bar">
+            <h2>📈 Dashboard</h2>
+          </div>
           <div class="dashboard-grid">
             <div class="dashboard-card">
-
-              <h3 style="text-decoration: underline;">Statistik Penyewaan Unit</h3>
-              <div style="margin-bottom: 10px;">
-                <label for="stats-filter">Filter Periode:</label>
-                <select id="stats-filter" onchange="loadDashboardStats()">
+              <h3 style="font-size:15px; font-weight:600; margin-bottom:12px; border-bottom:2px solid var(--themeSubtle); padding-bottom:8px;">Statistik Penyewaan Unit</h3>
+              <div style="margin-bottom: 12px;">
+                <label for="stats-filter" style="font-size:13px;">Filter Periode:</label>
+                <select id="stats-filter" onchange="loadDashboardStats()" style="width:auto; display:inline-block; margin-left:8px;">
                   <option value="all">Semua Waktu</option>
                   <option value="monthly">Bulanan</option>
                   <option value="weekly">Mingguan</option>
                 </select>
               </div>
-
-              <h4 style="text-align: center; font-weight: normal;">Jumlah Unit Disewakan per Periode</h4>
+              <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Jumlah Unit Disewakan per Periode</h4>
               <canvas id="rentedUnitsChart"></canvas>
-
-              <hr style="margin: 20px 0;">
-
-              <h4 style="text-align: center; font-weight: normal;">Top 5 Unit Paling Populer</h4>
+              <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
+              <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Top 5 Unit Paling Populer</h4>
               <canvas id="topUnitsChart"></canvas>
-
-              <div id="admin-stats-container" class="admin-only" style="margin-top: 20px; display: none;">
-                <hr>
-
-                <h3 style="text-decoration: underline;">Statistik Detail Setiap Agen</h3>
-                <h4 style="text-align: center; font-weight: normal;">Jumlah Unit Disewakan (per Agen)</h4>
+              <div id="admin-stats-container" class="admin-only" style="margin-top:16px; display:none;">
+                <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
+                <h3 style="font-size:15px; font-weight:600; margin-bottom:8px;">Statistik Detail Setiap Agen</h3>
+                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Jumlah Unit Disewakan (per Agen)</h4>
                 <canvas id="rentedUnitsByAgentChart"></canvas>
-
-                <hr style="margin: 20px 0;">
-
-                <h4 style="text-align: center; font-weight: normal;">Top 5 Unit Populer (per Agen)</h4>
+                <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
+                <h4 style="text-align:center; font-weight:500; font-size:13px; margin-bottom:8px;">Top 5 Unit Populer (per Agen)</h4>
                 <canvas id="topUnitsByAgentChart"></canvas>
               </div>
             </div>
             <div class="dashboard-card">
-
-              <h3 style="text-decoration: underline;">Laporan Pelanggaran</h3>
-              <div id="violations-container" style="max-height: 400px; overflow-y: auto;"></div>
-              <hr>
+              <h3 style="font-size:15px; font-weight:600; margin-bottom:12px; border-bottom:2px solid var(--themeSubtle); padding-bottom:8px;">Laporan Pelanggaran</h3>
+              <div id="violations-container" style="max-height:400px; overflow-y:auto;"></div>
+              <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
               <div class="admin-only">
-                <h3 style="text-decoration: underline;">Upload Laporan Baru</h3>
+                <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Upload Laporan Baru</h3>
                 <div class="form-group"><label>Pilih Penyewa</label><select id="violation-rental-id"></select></div>
-                <div class="form-group"><label>Upload Foto</label><input type="file" id="violation-photo-file"
-                    accept="image/*"></div>
+                <div class="form-group"><label>Upload Foto</label><input type="file" id="violation-photo-file" accept="image/*"></div>
                 <div class="form-group"><label>Deskripsi</label><input type="text" id="violation-desc"></div>
                 <button class="btn-success" onclick="submitViolation()">Upload Laporan</button>
               </div>
@@ -480,16 +740,18 @@
           </div>
         </div>
 
-        <div id="unit-management-section" class="page-content hidden">
-          <h2>🏢 Manajemen Unit Agen</h2>
+        <!-- UNIT MANAGEMENT -->
+        <div id="unit-management-section" class="page-content">
+          <div class="page-title-bar">
+            <h2>🏢 Manajemen Unit Agen</h2>
+          </div>
           <div class="form-group">
             <label>Pilih Agen</label>
             <select id="manage-agent-select" onchange="loadUnitsForAgent()"></select>
           </div>
           <div id="unit-list-container"></div>
-          <hr>
-
-          <h3>Tambah Unit Baru</h3>
+          <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
+          <h3 style="font-size:15px; font-weight:600; margin-bottom:12px;">Tambah Unit Baru</h3>
           <div class="form-group">
             <label>Tower</label>
             <select id="new-unit-tower">
@@ -507,25 +769,25 @@
             <label>Nomor</label>
             <input type="text" id="new-unit-nomor">
           </div>
-          <button class="btn-success" onclick="addUnit()" style="width: 100%; margin: 10px 0 0 0;">Tambah Unit</button>
+          <button class="btn-success" onclick="addUnit()" style="width:100%; margin:10px 0 0 0;">Tambah Unit</button>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+      </div><!-- end content-body -->
+    </div><!-- end main-area -->
+  </div><!-- end app-shell -->
+
+  <div id="alert-container" style="position:fixed; top:20px; right:20px; z-index:9999;"></div>
 
   <div id="log-modal"
     style="display:none; position:fixed; z-index:2000; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.5);">
-    <div
-      style="background-color:#fefefe; margin:10% auto; padding:20px; border:1px solid #888; width:80%; max-width:900px; border-radius: 8px;">
+    <div style="background-color:#fefefe; margin:10% auto; padding:20px; border:1px solid #e8e8e8; width:80%; max-width:900px; border-radius:8px; box-shadow:0 4px 24px rgba(0,0,0,0.12);">
       <span style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;"
         onclick="closeLogModal()">&times;</span>
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2 id="log-modal-title">Riwayat Perubahan</h2>
-        <button class="btn-success" id="download-log-tenant-csv" onclick="">📥 Download Log Ini (CSV)</button>
+        <h2 id="log-modal-title" style="font-size:16px; font-weight:600;">Riwayat Perubahan</h2>
+        <button class="btn-success" id="download-log-tenant-csv" onclick="" style="margin:0;">📥 Download Log Ini (CSV)</button>
       </div>
-      <div id="log-modal-body" style="max-height: 400px; overflow-y: auto; margin-top: 15px;"></div>
+      <div id="log-modal-body" style="max-height:400px; overflow-y:auto; margin-top:15px;"></div>
     </div>
   </div>
 
@@ -546,16 +808,19 @@
     }
 
     function isUserAdmin(user) {
-      return user && user.roles && user.roles.some(r => ['p3srs', 'pkj'].includes(r));
+      if (!user || !user.roles) return false;
+      // SRusun roles: 'Pengelola' = admin, 'Pelaku Komersil' = regular user
+      return user.roles.includes('Pengelola');
     }
 
 
     document.addEventListener('DOMContentLoaded', () => {
       checkAuthStatus();
-      document.getElementById('toggle-sidebar').addEventListener('click', () => {
-        document.getElementById('sidebar').classList.toggle('hide');
-      });
     });
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
 
     async function checkAuthStatus() {
       // Accept token from OTP redirect via URL param (?token=xxx)
@@ -580,8 +845,10 @@
         try {
           const decoded = decodeURIComponent(atob(sessionParam));
           const sessionObj = JSON.parse(decoded);
-          if (sessionObj?.AuthKey) {
-            localStorage.setItem('userSession', JSON.stringify({ token: sessionObj.AuthKey, object: sessionObj }));
+          // Support both SRusun format { AuthKey, dataUser } and plain JWT string
+          const authToken = sessionObj?.AuthKey || (typeof sessionObj === 'string' ? sessionObj : null);
+          if (authToken) {
+            localStorage.setItem('userSession', JSON.stringify({ token: authToken, object: sessionObj }));
           }
           window.history.replaceState({}, '', window.location.pathname);
         } catch (e) {
@@ -589,9 +856,19 @@
         }
       }
 
-      const session = JSON.parse(localStorage.getItem('userSession') || 'null');
+      // Also handle if localStorage was set directly with SRusun { AuthKey, dataUser } format
+      let session = JSON.parse(localStorage.getItem('userSession') || 'null');
+      if (session && session.AuthKey && !session.token) {
+        session = { token: session.AuthKey, object: session };
+        localStorage.setItem('userSession', JSON.stringify(session));
+      }
+
       const token = session?.token;
-      if (!token) { window.location.href = '/login'; return; }
+      if (!token) {
+        // Redirect to SRusun for auth, which will forward the session back via ?session= param
+        window.location.href = '/login';
+        return;
+      }
       try {
         const response = await fetch('/api/user', { headers: getAuthHeaders() });
         const data = await response.json();
@@ -624,9 +901,35 @@
       window.location.href = '/login';
     }
 
+    // Page titles and header options per page
+    const PAGE_META = {
+      'dashboard-section':       { title: 'Dashboard',           search: false, insert: false },
+      'input-form-section':      { title: 'Input Data Penyewa',  search: false, insert: false },
+      'view-data-section':       { title: 'Lihat / Edit Data',   search: true,  insert: false },
+      'unit-management-section': { title: 'Manajemen Unit',      search: false, insert: false },
+    };
+
     function showPage(pageId) {
-      document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
-      document.getElementById(pageId).classList.remove('hidden');
+      // Guard: Pelaku Komersil cannot access admin-only pages
+      if (pageId === 'unit-management-section' && !isUserAdmin(currentUser)) {
+        showAlert('Akses ditolak. Halaman ini hanya untuk Pengelola.', 'danger');
+        return;
+      }
+      document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active-page'));
+      document.getElementById(pageId).classList.add('active-page');
+
+      // Update green header title
+      const meta = PAGE_META[pageId] || { title: 'Penyewaan Unit', search: false, insert: false };
+      const titleEl = document.getElementById('page-title-display');
+      if (titleEl) titleEl.textContent = meta.title;
+
+      // Show/hide search and insert button in header
+      const searchBox = document.getElementById('header-search-box');
+      const insertBtn = document.getElementById('header-insert-btn');
+      const searchInput = document.getElementById('header-search-input');
+      if (searchBox) { searchBox.style.display = meta.search ? 'flex' : 'none'; }
+      if (searchInput) searchInput.value = '';
+      if (insertBtn) { insertBtn.style.display = (meta.insert && isUserAdmin(currentUser)) ? '' : 'none'; }
 
       document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
       let menuBtnId = `menu-${pageId.split('-')[0]}`;
@@ -647,14 +950,46 @@
       if (pageId === 'unit-management-section') loadAgentsForManagement();
     }
 
+    // Called by the header search input
+    function onHeaderSearch(val) {
+      filterRentalsTable(val);
+    }
+
+    // Filter visible table rows by a text query (client-side, on the rendered table)
+    function filterRentalsTable(query) {
+      const q = (query || '').toLowerCase().trim();
+      const table = document.querySelector('#rentals-table table');
+      if (!table) return;
+      const rows = table.querySelectorAll('tbody tr');
+      rows.forEach(row => {
+        row.style.display = (!q || row.textContent.toLowerCase().includes(q)) ? '' : 'none';
+      });
+    }
+
     function showMainSection() {
-      document.getElementById('main-section').classList.remove('hidden');
-      document.getElementById('user-info').innerHTML = `👤 <strong>${currentUser.nama || currentUser.email}</strong><br><small>${currentUser.email}</small>`;
+      const shell = document.getElementById('app-shell');
+      shell.style.display = 'flex';
+
+      // populate user info in sidebar
+      const displayName = currentUser.nama || currentUser.Nama || currentUser.email || 'Pengguna';
+      const userNameEl = document.getElementById('sidebar-user-name');
+      if (userNameEl) userNameEl.textContent = displayName;
+
+      // Display role(s) — supports both Data Capture format (array of strings)
+      // and SRusun format (array of objects with Nama, or already-mapped strings)
+      const userRoleEl = document.getElementById('sidebar-user-role');
+      if (userRoleEl && currentUser.roles) {
+        const roleLabels = currentUser.roles.map(r => (typeof r === 'object' ? r.Nama : r));
+        userRoleEl.textContent = roleLabels.join(' · ');
+      }
 
       const isAdmin = isUserAdmin(currentUser);
-      document.querySelectorAll('.admin-only').forEach(el => {
-        el.style.display = isAdmin ? 'block' : 'none';
-      });
+      if (isAdmin) {
+        // Remove admin-only class so natural CSS (flex, block, etc.) restores correctly.
+        // !important on the class means we must remove the class, not fight it with inline style.
+        document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('admin-only'));
+      }
+      // Non-admin: CSS .admin-only { display:none !important } already hides everything. No action needed.
 
       showPage('dashboard-section');
     }
@@ -1184,6 +1519,10 @@
     }
 
     async function submitViolation() {
+      if (!isUserAdmin(currentUser)) {
+        showAlert('Akses ditolak. Hanya Pengelola yang dapat mengupload laporan.', 'danger');
+        return;
+      }
       const formData = new FormData();
       formData.append('rental_id', document.getElementById('violation-rental-id').value);
       formData.append('description', document.getElementById('violation-desc').value);
@@ -1310,6 +1649,10 @@
     }
 
     async function addUnit() {
+      if (!isUserAdmin(currentUser)) {
+        showAlert('Akses ditolak. Hanya Pengelola yang dapat menambah unit.', 'danger');
+        return;
+      }
       const data = {
         agent_email: document.getElementById('manage-agent-select').value,
         unit_tower: document.getElementById('new-unit-tower').value,

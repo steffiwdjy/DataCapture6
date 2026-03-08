@@ -14,6 +14,7 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-key-jarrdin';
+const SRUSUN_JWT_SECRET = process.env.SRUSUN_JWT_SECRET || 'jarrdin-cihampelas';
 
 // --- File Upload Configuration ---
 const storage = multer.diskStorage({
@@ -51,15 +52,37 @@ const checkAuth = (req, res, next) => {
   if (!token) {
     return res.status(401).json({ success: false, message: "Akses ditolak. Silakan login." });
   }
+
+  let decoded;
   try {
-    req.user = jwt.verify(token, JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ success: false, message: "Token tidak valid. Silakan login ulang." });
+    decoded = jwt.verify(token, JWT_SECRET);
+  } catch (_) {
+    try {
+      decoded = jwt.verify(token, SRUSUN_JWT_SECRET);
+    } catch {
+      return res.status(401).json({ success: false, message: "Token tidak valid. Silakan login ulang." });
+    }
   }
+
+  // Normalize: SRusun JWT has UserID + Role (array of objects); Data Capture JWT has id + roles (array of strings)
+  if (decoded.UserID !== undefined && Array.isArray(decoded.Role)) {
+    req.user = {
+      id: decoded.UserID,
+      nama: decoded.Nama,
+      email: decoded.Email,
+      no_telp: decoded.NoTelp,
+      roles: decoded.Role.map(r => r.Nama),
+      fitur: decoded.Fitur || [],
+      _source: 'srusun'
+    };
+  } else {
+    req.user = decoded;
+  }
+  return next();
 };
 
-const ADMIN_ROLES = ['p3srs', 'pkj'];
+// SRusun roles: 'Pengelola' has admin access, 'Pelaku Komersil' has regular access
+const ADMIN_ROLES = ['Pengelola'];
 const isAdmin = (user) => user && user.roles && user.roles.some(r => ADMIN_ROLES.includes(r));
 const checkAdmin = (req, res, next) => {
   if (!isAdmin(req.user)) {
