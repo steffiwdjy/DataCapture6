@@ -1,0 +1,452 @@
+* {
+    font-family: "Montserrat", sans-serif !important;
+}
+:root {
+    /* font-family: "Montserrat", sans-serif !important; */
+    font-size: 14px;
+    font-weight: 400;
+    font-style: normal;
+
+    --body: #fff;
+    --black: #000;
+    --white: #fff;
+    --theme: #399051;
+    --themeSubtle: #f1f6f2;
+    --themeHover: #2e8546;
+    --themeTua: #0a7e66;
+    --theme2: #daaf15;
+    --theme2Hover: #caa007;
+    --theme2b: #de5433;
+    --gradient-theme: linear-gradient(to right, var(--theme), var(--themeTua));
+    --gradient-theme-opacity-80: linear-gradient(to right, #399052e7, #0a7e67);
+    --header: #0f0d1d;
+    --text: #445375;
+    --border: #d4dcff;
+    --border-2: #d4dced;
+    --bg: #f3f7fb;
+    --box-shadow: 0px 4px 25px 0px rgba(0, 0, 0, 0.06);
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0;
+}
+
+.bg-light {
+    background-color: white !important;
+}
+.btn-white {
+    background-color: white;
+}
+.btn-white:hover {
+    background-color: rgb(235, 235, 235);
+    transition: ease-in-out 0.2s;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100vw;
+    height: 100vh;
+}
+
+.container-home {
+    position: relative;
+    background-position: center center;
+    background-size: cover;
+    background-image: url(../public/assets/images/BangunanJarrdin1.jpeg) !important;
+    z-index: 0;
+}
+.container-home::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: var(--gradient-theme-opacity-80);
+    z-index: -1; /* Letakkan overlay di atas background */
+}
+
+.container-login {
+    position: relative; /* Pastikan posisi elemen relatif untuk lapisan overlay */
+    background-image: url(../public/assets/images/Kolam-1.jpg) !important;
+    background-position: center center;
+    background-size: cover;
+    z-index: 2; /* Pastikan konten berada di atas overlay */
+}
+
+.container-login::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8); /* Warna overlay dengan opacity 50% */
+    z-index: 1; /* Letakkan overlay di atas background */
+}
+
+.bg-theme {
+    background-color: var(--theme);
+}
+.btn-theme {
+    background-color: var(--theme);
+}
+.btn-theme:hover {
+    background-color: var(--themeHover);
+    transition: ease-in-out 0.2s;
+}
+
+.btn-theme-gradient {
+    background-image: var(--gradient-theme-opacity-80);
+}
+
+.bg-theme-subtle {
+    background-color: var(--themeSubtle);
+}
+
+.bg-themeTua {
+    background-color: var(--themeTua);
+}
+
+.bg-theme2 {
+    background-color: var(--theme2);
+}
+.btn-theme2 {
+    background-color: var(--theme2);
+}
+.btn-theme2:hover {
+    background-color: var(--theme2Hover);
+    transition: ease-in-out 0.5s;
+}
+
+.container .hexagonArea.last {
+    transform: translateY(-30px);
+}
+
+.container .hexagonArea.last.genap {
+    transform: translateY(-30px) translateX(25%);
+}
+.hexagon {
+    position: relative;
+    width: 120px;
+    height: 150px;
+    margin: 0 8px;
+    clip-path: polygon(0 25%, 50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%);
+    background-color: var(--theme2);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+
+    transition: 0.5s;
+    cursor: pointer;
+}
+
+.hexagon:hover {
+    background-image: var(--gradient-orange);
+    transform: scale(0.95);
+}
+
+.menu-v3:hover {
+    transform: scale(0.95);
+    transition: 0.5s;
+}
+
+.btn-home-logout:hover {
+    background-color: var(--theme2b);
+    color: white;
+    transition: 0.5s;
+}
+
+.input-dateRangePicker:focus {
+    border: 1px solid var(--theme) !important;
+}
+
+.menu-pengaturan-horizontal {
+    display: none;
+}
+
+/* MEDIA VERSION */
+
+/* Mobile Devices (Portrait) */
+@media only screen and (max-width: 480px) {
+    .list-role {
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+    }
+
+    .container-menu-v3 {
+        margin-top: 0 !important;
+    }
+
+    .menu-v3 {
+        height: 6rem !important;
+        padding: 10px !important;
+    }
+
+    .hexagon {
+        width: 85px;
+        height: 110px;
+        background-color: var(--theme2);
+        position: relative;
+        margin: 5px auto; /* Adds space around the hexagon */
+    }
+
+    .hexagon:before,
+    .hexagon:after {
+        content: "";
+        position: absolute;
+        width: 0;
+        border-left: 40px solid transparent; /* Half of hexagon width */
+        border-right: 40px solid transparent; /* Half of hexagon width */
+    }
+
+    .hexagon:before {
+        border-bottom: 60px solid var(--theme2b); /* Optional: Add your hexagon color */
+        top: -60px;
+    }
+
+    .hexagon:after {
+        border-top: 60px solid var(--theme2b); /* Optional: Add your hexagon color */
+        bottom: -60px;
+    }
+
+    /* Icon inside the hexagon */
+    .icon-hexagon {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Text inside the hexagon */
+    .text-hexagon {
+        font-size: 10px;
+    }
+
+    /* Adding spacing around the hexagon sides */
+    .hexagonArea {
+        display: flex;
+        justify-content: center;
+        gap: 10px; /* Adds spacing between hexagons */
+    }
+
+    .img-threeLogo {
+        width: 250px !important; /* Adjust the width for mobile */
+        height: 50px !important; /* Adjust the height for mobile */
+    }
+
+    /* MAIN CONTENT */
+    .filter-content {
+        flex-direction: column;
+        justify-content: start;
+    }
+
+    .css-op7nof-MuiFormControl-root {
+        margin: 0 !important;
+    }
+
+    .container-form-login {
+        width: 100% !important;
+    }
+
+    .header-content {
+        justify-content: start !important;
+        gap: 0.5rem;
+    }
+    .header-item {
+        display: none !important;
+    }
+    .filter-item.btn-insert {
+        display: block !important;
+    }
+    .input-dateRangePicker {
+        width: 100% !important;
+    }
+    .select-filter {
+        width: 100%;
+    }
+    .filter-item.search-input {
+        display: flex !important;
+    }
+
+    .sidebar {
+        display: none !important;
+    }
+    .btn-sidebar-mobile {
+        display: block !important;
+    }
+
+    .form-input {
+        flex-direction: column;
+    }
+    .form-input > label {
+        width: 100% !important;
+    }
+    /* END MAIN CONTENT */
+
+    h5 {
+        font-size: medium;
+    }
+
+    .list-role {
+        font-size: smaller;
+        /* UNTUK HOME BARU */
+        /* top: 6rem !important;
+    left: 2.5rem !important; */
+
+        /* UNTUK HOME LEBIH BARU */
+        width: 50% !important;
+    }
+
+    /* modal pengaturan */
+    .body-modal-pengaturan {
+        flex-direction: column;
+    }
+    .menu-pengaturan-horizontal {
+        display: block;
+    }
+    .menu-pengaturan-vertical {
+        display: none;
+    }
+}
+
+/* Mobile Devices (Landscape) */
+@media only screen and (min-width: 481px) and (max-width: 767px) {
+    .container-login {
+        overflow-y: scroll;
+    }
+    .container-form-login {
+        width: 50% !important;
+    }
+    .filter-item.search-input {
+        display: flex !important;
+    }
+
+    /* modal pengaturan */
+    .body-modal-pengaturan {
+        flex-direction: column;
+    }
+    .menu-pengaturan-horizontal {
+        display: block;
+    }
+    .menu-pengaturan-vertical {
+        display: none;
+    }
+}
+
+/* Tablets (Portrait and Landscape) */
+@media only screen and (min-width: 768px) and (max-width: 1024px) {
+    .list-role {
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 35%;
+    }
+    .container-menu-v3 {
+        margin-top: 0 !important;
+    }
+    .menu-v3 {
+        width: 10rem;
+        padding: 10px !important;
+    }
+
+    .container-form-login {
+        width: 50% !important;
+    }
+
+    /* MAIN CONTENT */
+    .filter-content {
+        flex-direction: column;
+        justify-content: start;
+    }
+
+    .css-op7nof-MuiFormControl-root {
+        margin: 0 !important;
+    }
+
+    .container-form-login {
+        width: 100% !important;
+    }
+
+    .header-content {
+        justify-content: start !important;
+        gap: 0.5rem;
+    }
+    .header-item {
+        display: none !important;
+    }
+    .filter-item.btn-insert {
+        display: block !important;
+    }
+    .input-dateRangePicker {
+        width: 100% !important;
+    }
+    .select-filter {
+        width: 100%;
+    }
+    .filter-item.search-input {
+        display: flex !important;
+    }
+
+    .sidebar {
+        display: none !important;
+    }
+    .btn-sidebar-mobile {
+        display: block !important;
+    }
+
+    .form-input {
+        flex-direction: column;
+    }
+    .form-input > label {
+        width: 100% !important;
+    }
+    /* END MAIN CONTENt */
+
+    /* modal pengaturan */
+    .body-modal-pengaturan {
+        flex-direction: column;
+    }
+    .menu-pengaturan-horizontal {
+        display: block;
+    }
+    .menu-pengaturan-vertical {
+        display: none;
+    }
+}
+
+/* END MEDIA VERSION */
+
+/* Untuk elemen dengan class 'scroll-thin' */
+.scroll-thin {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: #aaa transparent; /* Firefox */
+}
+
+/* Webkit (Chrome, Edge, Safari) */
+.scroll-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+    background-color: #aaa;
+    border-radius: 4px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #888;
+}

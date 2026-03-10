@@ -46,17 +46,6 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-// Local DB — used for: pengguna, pengguna_role, role (auth only)
-const localPool = mysql.createPool({
-  host: process.env.MYSQL_HOST,
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQL_DATABASE,
-  waitForConnections: true,
-  connectionLimit: 5,
-  queueLimit: 0
-});
-
 // --- Security Middleware ---
 const checkAuth = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -117,7 +106,7 @@ const checkAdmin = (req, res, next) => {
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {
-    const [rows] = await localPool.query(`
+    const [rows] = await pool.query(`
       SELECT p.*, GROUP_CONCAT(r.nama) as role_names
       FROM pengguna p
       LEFT JOIN pengguna_role pr ON p.id = pr.user_id
@@ -643,7 +632,7 @@ async function getOccupiedUnits() {
 
 
 async function getAgentIdByEmail(email) {
-  const conn = await localPool.getConnection();
+  const conn = await pool.getConnection();
   try {
     const [rows] = await conn.query("SELECT id FROM pengguna WHERE email = ?", [email]);
     return rows.length > 0 ? rows[0].id : null;
@@ -663,7 +652,7 @@ function parseUnitNumber(unit_number) {
 
 app.get('/api/agents', checkAdmin, async (req, res) => {
   try {
-    const [agents] = await localPool.query(`
+    const [agents] = await pool.query(`
       SELECT p.email FROM pengguna p
       INNER JOIN pengguna_role pr ON p.id = pr.user_id
       INNER JOIN role r ON pr.role_id = r.id
