@@ -39,7 +39,7 @@ DROP TABLE IF EXISTS `units`;
 
 CREATE TABLE IF NOT EXISTS `units` (
   `unit_number` varchar(10) NOT NULL,
-  `user_email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `user_pengguna_id` int(11) NOT NULL,
   `tower` varchar(2) DEFAULT NULL,
   `lantai` int(11) DEFAULT NULL,
   `unit` int(11) DEFAULT NULL
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS `rentals` (
   `waktu_checkout` time DEFAULT NULL,
   `lama_menginap` int(11) NOT NULL,
   `komentar` text DEFAULT NULL,
-  `user_email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
-  `diedit_oleh` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL,
+  `user_pengguna_id` int(11) NOT NULL,
+  `editor_pengguna_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `classification` enum('normal','tidak normal') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS `rental_logs` (
   `field_changed` varchar(50) DEFAULT NULL,
   `old_value` text DEFAULT NULL,
   `new_value` text DEFAULT NULL,
-  `email` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `pengguna_id` int(11) NOT NULL,
   `timestamp` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS `violations` (
   `rental_id` int(11) NOT NULL,
   `photo_url` varchar(1000) DEFAULT NULL,
   `description` text DEFAULT NULL,
-  `uploaded_by` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
+  `pengguna_id` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -101,23 +101,23 @@ CREATE TABLE IF NOT EXISTS `violations` (
 
 ALTER TABLE `units`
   ADD PRIMARY KEY (`unit_number`),
-  ADD KEY `fk_units_pengguna` (`user_email`);
+  ADD KEY `fk_units_pengguna` (`user_pengguna_id`);
 
 ALTER TABLE `rentals`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_rentals_unit` (`unit_number`),
-  ADD KEY `fk_rentals_pengguna` (`user_email`),
-  ADD KEY `fk_rentals_editor` (`diedit_oleh`);
+  ADD KEY `fk_rentals_pengguna` (`user_pengguna_id`),
+  ADD KEY `fk_rentals_editor` (`editor_pengguna_id`);
 
 ALTER TABLE `rental_logs`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_logs_rental` (`rental_id`),
-  ADD KEY `fk_logs_pengguna` (`email`);
+  ADD KEY `fk_logs_pengguna` (`pengguna_id`);
 
 ALTER TABLE `violations`
   ADD PRIMARY KEY (`id`),
   ADD KEY `fk_violations_rental` (`rental_id`),
-  ADD KEY `fk_violations_pengguna` (`uploaded_by`);
+  ADD KEY `fk_violations_pengguna` (`pengguna_id`);
 
 -- ALTER TABLE `Pengguna`
 --   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
@@ -139,19 +139,19 @@ ALTER TABLE `violations`
 --   ADD CONSTRAINT `fk_pengguna_role_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE `units`
-  ADD CONSTRAINT `fk_units_pengguna` FOREIGN KEY (`user_email`) REFERENCES `Pengguna` (`email`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_units_pengguna` FOREIGN KEY (`user_pengguna_id`) REFERENCES `Pengguna` (`pengguna_id`) ON DELETE CASCADE;
 
 ALTER TABLE `rentals`
-  ADD CONSTRAINT `fk_rentals_editor` FOREIGN KEY (`diedit_oleh`) REFERENCES `Pengguna` (`email`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_rentals_editor` FOREIGN KEY (`editor_pengguna_id`) REFERENCES `Pengguna` (`pengguna_id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_rentals_unit` FOREIGN KEY (`unit_number`) REFERENCES `units` (`unit_number`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_rentals_pengguna` FOREIGN KEY (`user_email`) REFERENCES `Pengguna` (`email`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_rentals_pengguna` FOREIGN KEY (`user_pengguna_id`) REFERENCES `Pengguna` (`pengguna_id`) ON DELETE CASCADE;
 
 ALTER TABLE `rental_logs`
   ADD CONSTRAINT `fk_logs_rental` FOREIGN KEY (`rental_id`) REFERENCES `rentals` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_logs_pengguna` FOREIGN KEY (`email`) REFERENCES `Pengguna` (`email`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_logs_pengguna` FOREIGN KEY (`pengguna_id`) REFERENCES `Pengguna` (`pengguna_id`) ON DELETE CASCADE;
 
 ALTER TABLE `violations`
   ADD CONSTRAINT `fk_violations_rental` FOREIGN KEY (`rental_id`) REFERENCES `rentals` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_violations_pengguna` FOREIGN KEY (`uploaded_by`) REFERENCES `Pengguna` (`email`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_violations_pengguna` FOREIGN KEY (`pengguna_id`) REFERENCES `Pengguna` (`pengguna_id`) ON DELETE CASCADE;
 
 COMMIT;
