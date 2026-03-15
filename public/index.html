@@ -626,8 +626,9 @@
           </div>
           <form id="rental-input-form">
             <div class="form-group"><label>Nama Penyewa</label><input type="text" id="nama" required></div>
-            <div class="form-group"><label>NIK</label><input type="text" id="nik_input" pattern="\d{16}"
-                title="NIK harus 16 digit angka" required></div>
+            <div class="form-group"><label>NIK</label><input type="text" id="nik_input" pattern="\d{16}" minlength="16"
+              maxlength="16" inputmode="numeric" oninput="this.value = this.value.replace(/\D/g, '').slice(0,16)"
+              title="NIK harus 16 digit angka" required></div>
             <div class="form-group"><label>Status Pasutri</label>
               <select id="status_pasutri_input">
                 <option value="Bukan">Bukan</option>
@@ -746,7 +747,7 @@
             <h2>🏢 Manajemen Unit Pelaku Komersil</h2>
           </div>
           <div class="form-group">
-            <label>Pilih Pelaku Komersil</label>
+            <label>Pilih Pengguna Pelaku Komersil</label>
             <select id="manage-agent-select" onchange="loadUnitsForAgent()"></select>
           </div>
           <div id="unit-list-container"></div>
@@ -1034,9 +1035,13 @@
 
     async function saveRental() {
       // 1. Gather all data from the form fields
+      const nikInput = document.getElementById('nik_input');
+      const nikValue = nikInput.value.replace(/\D/g, '').slice(0, 16);
+      nikInput.value = nikValue;
+
       const rentalData = {
         nama: document.getElementById('nama').value,
-        nik: document.getElementById('nik_input').value,
+        nik: nikValue,
         status_pasutri: document.getElementById('status_pasutri_input').value,
         unit_number: document.getElementById('unit-select').value,
         status_kewarganegaraan: document.getElementById('status_kewarganegaraan').value,
@@ -1620,31 +1625,47 @@
 
     async function loadAgentsForManagement() {
       const select = document.getElementById('manage-agent-select');
-      select.innerHTML = '<option>Memuat Pelaku Komersil...</option>';
-      const response = await fetch('/api/agents', { headers: getAuthHeaders() });
-      const result = await response.json();
-      if (result.success) {
-        select.innerHTML = '<option value="">Pilih Pelaku Komersil</option>';
+      select.innerHTML = '<option>Memuat pengguna Pelaku Komersil...</option>';
+
+      try {
+        const response = await fetch('/api/agents', { headers: getAuthHeaders() });
+        const result = await response.json();
+
+        if (!result.success) {
+          select.innerHTML = '<option value="">Gagal memuat data</option>';
+          showAlert(result.message || 'Gagal memuat daftar pengguna Pelaku Komersil.', 'danger');
+          return;
+        }
+
+        select.innerHTML = '<option value="">Pilih Pengguna Pelaku Komersil</option>';
         result.data.forEach(agent => {
-          select.innerHTML += `<option value="${agent.email}">${agent.email}</option>`;
+          const optionValue = `id:${agent.id}`;
+          const optionLabel = agent.nama
+            ? `${agent.nama} (${agent.email || 'tanpa email'})`
+            : (agent.email || `Pengguna #${agent.id}`);
+          select.innerHTML += `<option value="${optionValue}">${optionLabel}</option>`;
         });
+      } catch (error) {
+        console.error('Error loading Pelaku Komersil users:', error);
+        select.innerHTML = '<option value="">Gagal memuat data</option>';
+        showAlert('Gagal terhubung ke server untuk memuat pengguna Pelaku Komersil.', 'danger');
       }
     }
 
     async function loadUnitsForAgent() {
-      const agentEmail = document.getElementById('manage-agent-select').value;
+      const agentKey = document.getElementById('manage-agent-select').value;
       const container = document.getElementById('unit-list-container');
-      if (!agentEmail) { container.innerHTML = ''; return; }
+      if (!agentKey) { container.innerHTML = ''; return; }
       container.innerHTML = 'Memuat unit...';
 
-      const response = await fetch(`/api/units/${encodeURIComponent(agentEmail)}`, { headers: getAuthHeaders() });
+      const response = await fetch(`/api/units/${encodeURIComponent(agentKey)}`, { headers: getAuthHeaders() });
       const result = await response.json();
       if (result.success) {
         let html = '<ul>';
         result.data.forEach(unit => {
           html += `<li>${unit.unit_number} <button onclick="deleteUnit('${unit.id}')" style="background: #dc3545; font-size: 12px; padding: 2px 5px;">Hapus</button></li>`;
         });
-        container.innerHTML = (result.data.length > 0 ? html + '</ul>' : '<p>Agen ini belum memiliki unit.</p>');
+        container.innerHTML = (result.data.length > 0 ? html + '</ul>' : '<p>Pengguna ini belum memiliki unit.</p>');
       }
     }
 
@@ -1654,12 +1675,12 @@
         return;
       }
       const data = {
-        agent_email: document.getElementById('manage-agent-select').value,
+        agent_key: document.getElementById('manage-agent-select').value,
         unit_tower: document.getElementById('new-unit-tower').value,
         unit_lantai: document.getElementById('new-unit-lantai').value,
         unit_nomor: document.getElementById('new-unit-nomor').value,
       };
-      if (!data.agent_email || !data.unit_tower || !data.unit_lantai || !data.unit_nomor) {
+      if (!data.agent_key || !data.unit_tower || !data.unit_lantai || !data.unit_nomor) {
         showAlert('Semua field unit harus diisi.', 'danger'); return;
       }
       const response = await fetch('/api/units', {

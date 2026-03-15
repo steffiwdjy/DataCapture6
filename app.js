@@ -641,6 +641,28 @@ async function getAgentIdByEmail(email) {
   }
 }
 
+async function resolveAgentEmailFromKey(agentKey) {
+  if (!agentKey) return null;
+
+  const conn = await pool.getConnection();
+  try {
+    if (agentKey.startsWith('id:')) {
+      const penggunaId = parseInt(agentKey.slice(3), 10);
+      if (!Number.isInteger(penggunaId)) return null;
+
+      const [rows] = await conn.query(
+        `SELECT email FROM Pengguna WHERE pengguna_id = ? LIMIT 1`,
+        [penggunaId]
+      );
+      return rows.length > 0 ? rows[0].email : null;
+    }
+
+    return agentKey;
+  } finally {
+    conn.release();
+  }
+}
+
 function parseUnitNumber(unit_number) {
   const parts = (unit_number || "").split('-');
   return {
@@ -652,22 +674,31 @@ function parseUnitNumber(unit_number) {
 
 app.get('/api/agents', checkAdmin, async (req, res) => {
   try {
+    // Returns every Pengguna who has at least one Pelaku Komersil role (multi-role safe).
+    // Uses the same join pattern confirmed working in phpMyAdmin.
     const [agents] = await pool.query(`
-      SELECT p.email FROM pengguna p
-      INNER JOIN pengguna_role pr ON p.id = pr.user_id
-      INNER JOIN role r ON pr.role_id = r.id
-      WHERE r.nama = 'agen'
-      ORDER BY p.email
+      SELECT DISTINCT p.pengguna_id AS id, p.nama, p.email
+      FROM Pengguna p
+      JOIN pengguna_role pr ON pr.pengguna_id = p.pengguna_id
+      JOIN Role r ON r.role_id = pr.role_id
+      WHERE LOWER(r.nama) = 'pelaku komersil'
+      ORDER BY COALESCE(NULLIF(TRIM(p.nama), ''), p.email), p.email
     `);
     res.json({ success: true, data: agents });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Gagal memuat daftar agen.' });
+    console.error('Load Pelaku Komersil Error:', error);
+    res.status(500).json({ success: false, message: 'Gagal memuat daftar pengguna Pelaku Komersil.' });
   }
 });
 
 app.get('/api/units/:agentEmail', checkAdmin, async (req, res) => {
   try {
-    const agentEmail = decodeURIComponent(req.params.agentEmail);
+    const agentKey = decodeURIComponent(req.params.agentEmail);
+    const agentEmail = await resolveAgentEmailFromKey(agentKey);
+
+    if (!agentEmail) {
+      return res.json({ success: true, data: [] });
+    }
 
     const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_email = ?", [agentEmail]);
     const formattedUnits = units.map(u => ({ id: u.id, unit_number: u.unit_number, ...parseUnitNumber(u.unit_number) }));
@@ -703,9 +734,14 @@ app.get('/api/units', checkAuth, async (req, res) => {
 
 
 app.post('/api/units', checkAdmin, async (req, res) => {
-  const { unit_tower, unit_lantai, unit_nomor, agent_email } = req.body;
+  const { unit_tower, unit_lantai, unit_nomor, agent_email, agent_key } = req.body;
 
-  if (!unit_tower || !unit_lantai || !unit_nomor || !agent_email) {
+  let resolvedAgentEmail = agent_email;
+  if (!resolvedAgentEmail && agent_key) {
+    resolvedAgentEmail = await resolveAgentEmailFromKey(agent_key);
+  }
+
+  if (!unit_tower || !unit_lantai || !unit_nomor || !resolvedAgentEmail) {
     return res.status(400).json({ success: false, message: "Data unit tidak lengkap." });
   }
 
@@ -713,7 +749,7 @@ app.post('/api/units', checkAdmin, async (req, res) => {
     const unit_number = `${unit_tower}-${unit_lantai}-${unit_nomor}`;
     await pool.query(
       `INSERT INTO units (unit_number, user_email, tower, lantai, unit) VALUES (?, ?, ?, ?, ?)`,
-      [unit_number, agent_email, unit_tower, unit_lantai, unit_nomor]
+      [unit_number, resolvedAgentEmail, unit_tower, unit_lantai, unit_nomor]
     );
     res.json({ success: true, message: "Unit berhasil ditambahkan." });
   } catch (error) {
@@ -848,6 +884,11 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
       jenis_sewa, metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin, tanggal_checkout
     } = req.body;
 
+    const normalizedNik = String(nik || '').replace(/\D/g, '');
+    if (!/^\d{16}$/.test(normalizedNik)) {
+      return res.status(400).json({ success: false, message: 'NIK harus terdiri dari 16 digit angka.' });
+    }
+
     const userIsAdmin = isAdmin(req.user);
     let agent_email = req.user.email;
     if (userIsAdmin && req.body.agent_email) {
@@ -864,7 +905,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const params = [
-      nama, nik, db_status_pasutri, status_kewarganegaraan,
+      nama, normalizedNik, db_status_pasutri, status_kewarganegaraan,
       jenis_sewa, unit_number, metode_pembayaran, metode_pembayaran === 'Others' ? metode_lain : null,
       tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_email
     ];
