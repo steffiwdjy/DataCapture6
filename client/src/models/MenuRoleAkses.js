@@ -196,7 +196,7 @@ export function multiRoleAkses(roles) {
 export function listHakAkses(fitur) {
     const hasil = fitur?.map((nama) => ({
         label: nama,
-        key: "/" + nama.toLowerCase().replace(/\s+/g, ""),
+        key: nama === "Penyewaan Unit" ? "/sewa" : "/" + nama.toLowerCase().replace(/\s+/g, ""),
         icon: HakAksesIcon[nama],
     }));
 

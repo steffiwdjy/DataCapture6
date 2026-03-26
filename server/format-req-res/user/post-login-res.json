@@ -1,0 +1,20 @@
+[
+  {
+    "endpoint": "http://localhost:3000/login",
+    "success": true,
+    "data": {
+      "User": {
+        "userID": 1,
+        "nama": "Rafi Bintang",
+        "email": "rafibintang26.rb@gmail.com",
+        "noTelp": "081382189198"
+      },
+      "Otp": "299124"
+    }
+  },
+  {
+    "endpoint": "http://localhost:3000/login/verify-otp",
+    "success": true,
+    "message": "Login successful"
+  }
+]

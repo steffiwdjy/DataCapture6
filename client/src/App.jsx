@@ -113,7 +113,7 @@ function App() {
                             path="/sewa"
                             element={
                                 <ProtectedRoute
-                                    element={<ExternalRedirect to="http://localhost:3000" />}
+                                    element={<ExternalRedirect to="http://localhost:3001/sewa" />}
                                     allowedRoles={["Pengelola", "Pelaku Komersil"]}
                                 />
                             }

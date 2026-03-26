@@ -8,5 +8,6 @@ const Fitur = {
     "Informasi Paket": 6,
     "Masukan & Aspirasi": 7,
     "Daftar Pengguna": 8,
+    "Penyewaan Unit": 9,
 };
 export { Fitur };

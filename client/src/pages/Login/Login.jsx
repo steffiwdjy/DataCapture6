@@ -150,7 +150,6 @@ function Login() {
                     Email: responseData.Email,
                     NoTelp: responseData.NoTelp,
                 }));
-                // console.log(response);
 
                 setActiveStep(isActiveStep + 1);
                 setLoading(false);
@@ -158,7 +157,6 @@ function Login() {
 
             if (currIsActive === 2) {
                 const response = await axios.post(`${urlServer}/login/verify-otp`, otp);
-                // console.log(response);
 
                 const authorizationHeader = response.headers["authorization"];
                 const userSession = {
@@ -166,12 +164,9 @@ function Login() {
                     dataUser: response.data.data,
                 };
                 if (userSession.AuthKey !== "") {
-                    // sessionStorage.setItem("userSession", JSON.stringify(userSession));
-                    // Simpan userSession di localStorage
                     localStorage.setItem("userSession", JSON.stringify(userSession));
                 }
-                window.location.href = `${urlClient}/`; //enggunakan window.location.href karena agar me reload halaman tujuan;
-                // console.log(response);
+                window.location.href = `${urlClient}/`;
                 setLoading(false);
             }
         } catch (error) {

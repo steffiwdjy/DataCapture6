@@ -45,12 +45,6 @@ function HomeLayout({ dataUser, contentInfoRole, fiturUser }) {
                                     className="menu-v3 bg-theme-subtle d-flex shadow rounded flex-column justify-content-center align-items-center p-5"
                                     style={{ cursor: "pointer", height: "10rem" }}
                                     onClick={() => {
-                                        if (akses.key === "/penyewaanunit") {
-                                            const rawSession = localStorage.getItem("userSession");
-                                            const encoded = btoa(encodeURIComponent(rawSession));
-                                            window.location.href = `http://localhost:3000?session=${encoded}`;
-                                            return;
-                                        }
                                         navigate(akses.key);
                                     }}
                                 >

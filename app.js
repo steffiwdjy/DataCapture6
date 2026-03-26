@@ -9,7 +9,10 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const multer = require('multer');
 const { Parser } = require('json2csv');
-require('dotenv').config();
+require('dotenv').config({
+  path: path.resolve(__dirname, '.env'),
+  override: true
+});
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -29,7 +32,29 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+const allowedOrigins = [
+  'https://web.srusun.id',
+  'https://webmember.srusun.id',
+  'https://member.thejarrdin.com',
+  'https://apimember.thejarrdin.com',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
@@ -133,6 +158,11 @@ app.post('/api/logout', (req, res) => {
 });
 
 app.get('/api/user', checkAuth, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// Alias for session verification used by the React client
+app.get('/api/user/session', checkAuth, (req, res) => {
   res.json({ user: req.user });
 });
 

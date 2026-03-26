@@ -1,5 +1,5 @@
 import { faBell } from "@fortawesome/free-regular-svg-icons";
-import { multiRoleAkses, bagiArrayAkses } from "../../models/menuRoleAkses";
+import { multiRoleAkses, bagiArrayAkses } from "../../models/MenuRoleAkses";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons/faArrowRightFromBracket";
 import { threelogo } from "../../../public/assets/images/index";

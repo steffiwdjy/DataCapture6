@@ -1,5 +1,5 @@
 import { Button, ConfigProvider, Menu, Modal } from "antd";
-import { listHakAkses, multiRoleAkses } from "../models/menuRoleAkses";
+import { listHakAkses, multiRoleAkses } from "../models/MenuRoleAkses";
 import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -80,12 +80,6 @@ function SidebarMobile() {
                     items={itemsMenu}
                     defaultSelectedKeys={[window.location.pathname]}
                     onClick={({ key }) => {
-                        if (key === "/penyewaanunit") {
-                            const rawSession = localStorage.getItem("userSession");
-                            const encoded = btoa(encodeURIComponent(rawSession));
-                            window.location.href = `http://localhost:3000/sewa?session=${encoded}`;
-                            return;
-                        }
                         toggleisSidebarMobileOpen();
                         navigate(key);
                     }}

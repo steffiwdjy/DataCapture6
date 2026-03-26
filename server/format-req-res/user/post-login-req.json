@@ -1,0 +1,20 @@
+{
+  "method": "POST",
+  "endpointLogin": "http://localhost:3000/login",
+  "request data (dengan EMAIL)": {
+    "User": {
+      "Email": "admin@gmail.com"
+    }
+  },
+  "request data (dengan NoTelp)": {
+    "User": {
+      "NoTelp": "081382189198"
+    }
+  },
+
+  "endpointVerifyOtp": "http://localhost:3000/login/verify-otp",
+  "request data": {
+    "LoginSessionID": 1,
+    "Otp": "123456"
+  }
+}

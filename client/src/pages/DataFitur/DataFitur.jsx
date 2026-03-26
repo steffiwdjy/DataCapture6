@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import GlobalLayout from "../../components/Layout/GlobalLayout";
-import MainContent from "../../components/Layout/MainCOntent";
+import MainContent from "../../components/Layout/MainContent";
 import HeaderKonten from "../../components/HeaderKonten";
 import DataFiturLayout from "../../components/Layout/DataFiturLayout";
 import { addDays, addYears } from "date-fns";

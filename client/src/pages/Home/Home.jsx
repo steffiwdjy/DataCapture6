@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import GlobalLayout from "../../components/Layout/GlobalLayout";
-import MainContent from "../../components/Layout/MainCOntent";
+import MainContent from "../../components/Layout/MainContent";
 import { Avatar, Badge } from "antd";
 import { faBell, faFile } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import axios from "axios";
 import { urlServer } from "../../utils/endpoint";
-import { bagiArrayAkses, listHakAkses, multiRoleAkses } from "../../models/menuRoleAkses";
+import { bagiArrayAkses, listHakAkses, multiRoleAkses } from "../../models/MenuRoleAkses";
 import HomeLayout from "../../components/Layout/HomeLayout";
 import { threelogo } from "../../../public/assets/images";
 import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";

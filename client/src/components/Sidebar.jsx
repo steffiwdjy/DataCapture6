@@ -1,5 +1,5 @@
 import { Button, ConfigProvider, Menu, Modal } from "antd";
-import { listHakAkses, multiRoleAkses } from "../models/menuRoleAkses";
+import { listHakAkses, multiRoleAkses } from "../models/MenuRoleAkses";
 import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import toogleSidebar from "../utils/toogleSidebar";
@@ -88,12 +88,6 @@ function Sidebar() {
                     items={itemsMenu}
                     defaultSelectedKeys={[window.location.pathname]}
                     onClick={({ key }) => {
-                        if (key === "/penyewaanunit") {
-                            const rawSession = localStorage.getItem("userSession");
-                            const encoded = btoa(encodeURIComponent(rawSession));
-                            window.location.href = `http://localhost:3000?session=${encoded}`;
-                            return;
-                        }
                         navigate(key);
                     }}
                 />
