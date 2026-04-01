@@ -8,7 +8,7 @@ import axios from "axios";
 import { urlServer } from "../../utils/endpoint";
 import { bagiArrayAkses, listHakAkses, multiRoleAkses } from "../../models/MenuRoleAkses";
 import HomeLayout from "../../components/Layout/HomeLayout";
-import { threelogo } from "../../../public/assets/images";
+import { threelogo } from "../../../public/assets/images/index";
 import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 import toogleModal from "../../utils/toogleModal";
 import ModalNotifikasi from "../../components/ModalNotifikasi";

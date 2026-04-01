@@ -9,6 +9,15 @@ class DatabaseManager {
             dialect: dialect,
             port: port,
             logging: false,
+            pool: {
+                max: 10,
+                min: 0,
+                acquire: 30000,
+                idle: 10000
+            },
+            dialectOptions: {
+                connectTimeout: 60000
+            }
         });
         DatabaseManager.DATABASES[dbName] = this.db;
     }

@@ -60,7 +60,7 @@ body {
     position: relative;
     background-position: center center;
     background-size: cover;
-    background-image: url(../public/assets/images/BangunanJarrdin1.jpeg) !important;
+    background-image: url(/assets/images/BangunanJarrdin1.jpeg) !important;
     z-index: 0;
 }
 .container-home::before {
@@ -76,7 +76,7 @@ body {
 
 .container-login {
     position: relative; /* Pastikan posisi elemen relatif untuk lapisan overlay */
-    background-image: url(../public/assets/images/Kolam-1.jpg) !important;
+    background-image: url(/assets/images/Kolam-1.jpg) !important;
     background-position: center center;
     background-size: cover;
     z-index: 2; /* Pastikan konten berada di atas overlay */
