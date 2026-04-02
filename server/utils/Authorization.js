@@ -21,11 +21,15 @@ class Authorization {
 
     static async decryption(req, res, next) {
         try {
-            const token = req.headers["authorization"];
+            let token = req.headers["authorization"];
             // console.log(token);
 
             if (!token) {
                 return res.status(401).json({ message: "Unauthorized" });
+            }
+
+            if (token.startsWith('Bearer ')) {
+                token = token.slice(7);
             }
 
             const secretKey = process.env.SECRET_KEY;
@@ -36,12 +40,11 @@ class Authorization {
 
             next();
         } catch (error) {
-            console.error(error);
-
             if (error.name === "TokenExpiredError") {
                 return res.status(403).json({ message: "Token has expired" });
             }
 
+            console.error(error);
             return res.status(403).json({ message: "Forbidden" });
         }
     }

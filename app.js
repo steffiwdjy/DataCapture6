@@ -38,6 +38,8 @@ const allowedOrigins = [
   'https://member.thejarrdin.com',
   'https://apimember.thejarrdin.com',
   'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:3001',
   'http://127.0.0.1:5173'
 ];
 
@@ -46,7 +48,8 @@ const corsOptions = {
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+    // Don't throw an error, just block the request nicely
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -182,8 +185,8 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
 
     // Filter berdasarkan Role
     if (!isAdmin(user)) {
-      whereClauses.push('r.user_email = ?');
-      params.push(user.email);
+      whereClauses.push('r.user_pengguna_id = ?');
+      params.push(user.id);
     }
 
     // Filter berdasarkan Komentar (jika ada)
@@ -203,14 +206,16 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
     const logSubQuery = `(SELECT GROUP_CONCAT(
             JSON_OBJECT(
                 'action', l.action, 'field_changed', l.field_changed, 'old_value', l.old_value,
-                'new_value', l.new_value, 'email', l.email, 'timestamp', l.timestamp
+                'new_value', l.new_value, 'email', lp.email, 'timestamp', l.timestamp
             ) SEPARATOR '|||'
-        ) FROM rental_logs l WHERE l.rental_id = r.id) as logs_json`;
+        ) FROM rental_logs l LEFT JOIN Pengguna lp ON l.pengguna_id = lp.pengguna_id WHERE l.rental_id = r.id) as logs_json`;
 
     const dataQuery = `
-            SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as user_email, ${logSubQuery}
+            SELECT r.*, u.tower, u.lantai, u.unit, p.email AS user_email, e.email AS diedit_oleh, r.user_pengguna_id as user_pengguna_id, ${logSubQuery}
             FROM rentals r
             LEFT JOIN units u ON r.unit_number = u.unit_number
+            LEFT JOIN Pengguna p ON r.user_pengguna_id = p.pengguna_id
+            LEFT JOIN Pengguna e ON r.editor_pengguna_id = e.pengguna_id
             ${whereSql}
             ORDER BY r.created_at DESC
             LIMIT ? OFFSET ?
@@ -299,18 +304,18 @@ app.put('/api/rentals/:id', checkAuth, async (req, res) => {
 
       if (String(oldValue) !== String(newData[key])) {
         changedFields[key] = newData[key];
-        logEntries.push(['update', key, String(oldValue), String(newData[key]), req.user.email, id]);
+        logEntries.push(['update', key, String(oldValue), String(newData[key]), req.user.id, id]);
       }
     });
 
     if (Object.keys(changedFields).length > 0) {
-      changedFields.diedit_oleh = req.user.email;
+      changedFields.editor_pengguna_id = req.user.id;
       const updateQuery = 'UPDATE rentals SET ' + Object.keys(changedFields).map(key => `${key} = ?`).join(', ') + ' WHERE id = ?';
       const updateParams = [...Object.values(changedFields), id];
       await conn.query(updateQuery, updateParams);
 
       if (logEntries.length > 0) {
-        const logQuery = 'INSERT INTO rental_logs (action, field_changed, old_value, new_value, email, rental_id) VALUES ?';
+        const logQuery = 'INSERT INTO rental_logs (action, field_changed, old_value, new_value, pengguna_id, rental_id) VALUES ?';
         await conn.query(logQuery, [logEntries]);
       }
     }
@@ -377,12 +382,12 @@ app.get('/api/rentals/duplicates', checkAdmin, async (req, res) => {
 app.get('/api/rentals/csv', checkAuth, async (req, res) => {
   try {
     const user = req.user;
-    let query = 'SELECT r.*, u.tower, u.lantai, u.unit, r.user_email as user_email FROM rentals r LEFT JOIN units u ON r.unit_number = u.unit_number';
+    let query = 'SELECT r.*, u.tower, u.lantai, u.unit, p.email AS user_email, e.email AS diedit_oleh FROM rentals r LEFT JOIN units u ON r.unit_number = u.unit_number LEFT JOIN Pengguna p ON r.user_pengguna_id = p.pengguna_id LEFT JOIN Pengguna e ON r.editor_pengguna_id = e.pengguna_id';
     const params = [];
 
     if (!isAdmin(user)) {
-      query += ' WHERE r.user_email = ?';
-      params.push(user.email);
+      query += ' WHERE r.user_pengguna_id = ?';
+      params.push(user.id);
     }
     query += ' ORDER BY r.created_at DESC';
     const [rows] = await pool.query(query, params);
@@ -404,17 +409,18 @@ app.get('/api/logs/csv', checkAuth, async (req, res) => {
     const user = req.user;
     let query = `
             SELECT 
-                l.id, l.timestamp, l.email, r.nama as nama_penyewa, CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit,
+                l.id, l.timestamp, l.pengguna_id, p.email, r.nama as nama_penyewa, CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit,
                 l.action, l.field_changed, l.old_value, l.new_value
             FROM rental_logs l
             LEFT JOIN rentals r ON l.rental_id = r.id
             LEFT JOIN units u ON r.unit_number = u.unit_number
+            LEFT JOIN Pengguna p ON l.pengguna_id = p.pengguna_id
         `;
     const params = [];
 
     if (!isAdmin(user)) {
-      query += ' WHERE r.user_email = ?';
-      params.push(user.email);
+      query += ' WHERE r.user_pengguna_id = ?';
+      params.push(user.id);
     }
 
     query += ' ORDER BY l.timestamp DESC';
@@ -443,7 +449,11 @@ app.get('/api/rentals/:id/log/csv', checkAuth, async (req, res) => {
     const { nama, unit } = rentalInfo[0];
     const safeFilename = `log-${nama.replace(/[^a-zA-Z0-9]/g, '_')}-unit_${unit}.csv`;
 
-    const [logs] = await pool.query('SELECT * FROM rental_logs WHERE rental_id = ? ORDER BY timestamp DESC', [id]);
+    const [logs] = await pool.query(
+      'SELECT l.*, p.email FROM rental_logs l LEFT JOIN Pengguna p ON l.pengguna_id = p.pengguna_id WHERE l.rental_id = ? ORDER BY l.timestamp DESC', 
+      [id]
+    );
+
     const fields = ['timestamp', 'email', 'action', 'field_changed', 'old_value', 'new_value'];
     const csv = new Parser({ fields }).parse(logs);
 
@@ -481,8 +491,8 @@ app.get('/api/dashboard/rentals-over-time', checkAuth, async (req, res) => {
   const params = [];
 
   if (!isAdmin(user)) {
-    query += ` ${dateFilter ? 'AND' : 'WHERE'} user_email = ?`;
-    params.push(user.email);
+    query += ` ${dateFilter ? 'AND' : 'WHERE'} user_pengguna_id = ?`;
+    params.push(user.id);
   }
 
   query += ` GROUP BY period ORDER BY period ASC`;
@@ -510,10 +520,11 @@ app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
     dateFilter = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
   }
 
+  // userEmail will only exist if we map it properly, but here we group by user_pengguna_id.
   let query = `
         SELECT 
             CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit_full, 
-            r.user_email as user_email,
+            r.user_pengguna_id as user_pengguna_id,
             COUNT(*) as rental_count 
         FROM rentals r
         LEFT JOIN units u ON r.unit_number = u.unit_number
@@ -522,17 +533,17 @@ app.get('/api/dashboard/popular-units', checkAuth, async (req, res) => {
   const params = [];
 
   if (!isAdmin(user)) {
-    query += ` ${dateFilter ? 'AND' : 'WHERE'} r.user_email = ?`;
-    params.push(user.email);
+    query += ` ${dateFilter ? 'AND' : 'WHERE'} r.user_pengguna_id = ?`;
+    params.push(user.id);
   }
 
-  query += ` GROUP BY unit_full, r.user_email ORDER BY rental_count DESC LIMIT 5`;
+  query += ` GROUP BY unit_full, r.user_pengguna_id ORDER BY rental_count DESC LIMIT 5`;
 
   try {
     const [results] = await pool.query(query, params);
     const labels = results.map(r => r.unit_full);
     const data = results.map(r => r.rental_count);
-    const agents = results.map(r => r.user_email); // For admin view
+    const agents = results.map(r => r.user_pengguna_id); // For admin view
     res.json({ success: true, labels, data, agents });
   } catch (error) {
     console.error("Popular Units Error:", error);
@@ -547,16 +558,17 @@ app.get('/api/dashboard/agent-performance', checkAdmin, async (req, res) => {
 
   let dateFilter = '';
   if (filter === 'weekly') {
-    dateFilter = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+    dateFilter = 'WHERE r.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
   } else if (filter === 'monthly') {
-    dateFilter = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
+    dateFilter = 'WHERE r.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)';
   }
 
   const query = `
-        SELECT user_email, COUNT(*) as total_rented 
-        FROM rentals 
+        SELECT p.email AS user_email, COUNT(*) as total_rented 
+        FROM rentals r
+        LEFT JOIN Pengguna p ON r.user_pengguna_id = p.pengguna_id
         ${dateFilter} 
-        GROUP BY user_email 
+        GROUP BY p.email 
         ORDER BY total_rented DESC
     `;
 
@@ -576,8 +588,8 @@ app.post('/api/dashboard/violations', checkAdmin, upload.single('photo'), async 
   const photo_url = req.file ? `/uploads/${req.file.filename}` : null;
   try {
     await pool.query(
-      `INSERT INTO violations (rental_id, description, photo_url, uploaded_by) VALUES (?, ?, ?, ?)`,
-      [rental_id, description, photo_url, req.user.email]
+      `INSERT INTO violations (rental_id, description, photo_url, pengguna_id) VALUES (?, ?, ?, ?)`,
+      [rental_id, description, photo_url, req.user.id]
     );
     res.json({ success: true, message: 'Laporan pelanggaran berhasil diupload.' });
   } catch (error) {
@@ -591,7 +603,7 @@ app.get('/api/dashboard/violations', checkAuth, async (req, res) => {
     const user = req.user;
     const userIsAdmin = isAdmin(user);
 
-    const uploadedByField = userIsAdmin ? 'v.uploaded_by' : "'' as uploaded_by";
+    const uploadedByField = userIsAdmin ? 'v.pengguna_id' : "'' as pengguna_id";
 
     const query = `SELECT v.id, v.description, v.photo_url, v.created_at, r.nama, CONCAT(u.tower, '-', u.lantai, '-', u.unit) as unit, ${uploadedByField}
             FROM violations v 
@@ -661,33 +673,22 @@ async function getOccupiedUnits() {
 
 
 
-async function getAgentIdByEmail(email) {
-  const conn = await pool.getConnection();
-  try {
-    const [rows] = await conn.query("SELECT id FROM pengguna WHERE email = ?", [email]);
-    return rows.length > 0 ? rows[0].id : null;
-  } finally {
-    conn.release();
-  }
-}
-
-async function resolveAgentEmailFromKey(agentKey) {
+// We map the various possible inputs (agent_email or agent_key) into the user_pengguna_id (integer)
+async function resolveAgentIdFromKey(agentKey) {
   if (!agentKey) return null;
 
   const conn = await pool.getConnection();
   try {
-    if (agentKey.startsWith('id:')) {
+    if (String(agentKey).startsWith('id:')) {
       const penggunaId = parseInt(agentKey.slice(3), 10);
-      if (!Number.isInteger(penggunaId)) return null;
-
-      const [rows] = await conn.query(
-        `SELECT email FROM Pengguna WHERE pengguna_id = ? LIMIT 1`,
-        [penggunaId]
-      );
-      return rows.length > 0 ? rows[0].email : null;
+      return Number.isInteger(penggunaId) ? penggunaId : null;
     }
 
-    return agentKey;
+    const [rows] = await conn.query(
+      `SELECT pengguna_id FROM Pengguna WHERE email = ? LIMIT 1`,
+      [agentKey]
+    );
+    return rows.length > 0 ? rows[0].pengguna_id : null;
   } finally {
     conn.release();
   }
@@ -724,13 +725,13 @@ app.get('/api/agents', checkAdmin, async (req, res) => {
 app.get('/api/units/:agentEmail', checkAdmin, async (req, res) => {
   try {
     const agentKey = decodeURIComponent(req.params.agentEmail);
-    const agentEmail = await resolveAgentEmailFromKey(agentKey);
+    const agentId = await resolveAgentIdFromKey(agentKey);
 
-    if (!agentEmail) {
+    if (!agentId) {
       return res.json({ success: true, data: [] });
     }
 
-    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_email = ?", [agentEmail]);
+    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_pengguna_id = ?", [agentId]);
     const formattedUnits = units.map(u => ({ id: u.id, unit_number: u.unit_number, ...parseUnitNumber(u.unit_number) }));
     res.json({ success: true, data: formattedUnits });
   } catch (error) {
@@ -766,20 +767,20 @@ app.get('/api/units', checkAuth, async (req, res) => {
 app.post('/api/units', checkAdmin, async (req, res) => {
   const { unit_tower, unit_lantai, unit_nomor, agent_email, agent_key } = req.body;
 
-  let resolvedAgentEmail = agent_email;
-  if (!resolvedAgentEmail && agent_key) {
-    resolvedAgentEmail = await resolveAgentEmailFromKey(agent_key);
+  let resolvedAgentId = await resolveAgentIdFromKey(agent_email);
+  if (!resolvedAgentId && agent_key) {
+    resolvedAgentId = await resolveAgentIdFromKey(agent_key);
   }
 
-  if (!unit_tower || !unit_lantai || !unit_nomor || !resolvedAgentEmail) {
+  if (!unit_tower || !unit_lantai || !unit_nomor || !resolvedAgentId) {
     return res.status(400).json({ success: false, message: "Data unit tidak lengkap." });
   }
 
   try {
     const unit_number = `${unit_tower}-${unit_lantai}-${unit_nomor}`;
     await pool.query(
-      `INSERT INTO units (unit_number, user_email, tower, lantai, unit) VALUES (?, ?, ?, ?, ?)`,
-      [unit_number, resolvedAgentEmail, unit_tower, unit_lantai, unit_nomor]
+      `INSERT INTO units (unit_number, user_pengguna_id, tower, lantai, unit) VALUES (?, ?, ?, ?, ?)`,
+      [unit_number, resolvedAgentId, unit_tower, unit_lantai, unit_nomor]
     );
     res.json({ success: true, message: "Unit berhasil ditambahkan." });
   } catch (error) {
@@ -848,7 +849,7 @@ app.get('/api/my-units', checkAuth, async (req, res) => {
   try {
     const occupiedUnitsSet = await getOccupiedUnits();
 
-    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_email = ?", [req.user.email]);
+    const [units] = await pool.query("SELECT unit_number as id, unit_number FROM units WHERE user_pengguna_id = ?", [req.user.id]);
     const formattedUnits = units.map(u => {
 
       const unitParts = parseUnitNumber(u.unit_number);
@@ -873,9 +874,9 @@ app.get('/api/all-units', checkAdmin, async (req, res) => {
   try {
     const occupiedUnitsSet = await getOccupiedUnits();
 
-    const query = 'SELECT u.unit_number as id, u.unit_number, u.user_email as agent_email ' +
+    const query = 'SELECT u.unit_number as id, u.unit_number, u.user_pengguna_id as agent_email ' +
       'FROM units u ' +
-      'ORDER BY u.user_email, u.unit_number';
+      'ORDER BY u.user_pengguna_id, u.unit_number';
 
     const [units] = await pool.query(query);
     const formattedUnits = units.map(u => {
@@ -920,9 +921,9 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     }
 
     const userIsAdmin = isAdmin(req.user);
-    let agent_email = req.user.email;
-    if (userIsAdmin && req.body.agent_email) {
-      agent_email = req.body.agent_email;
+    let agent_id = req.user.id;
+    if (userIsAdmin && req.body.agent_id) {
+      agent_id = req.body.agent_id;
     }
 
     const lama_menginap = calculateDays(tanggal_checkin, tanggal_checkout);
@@ -931,13 +932,13 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     const sql = `INSERT INTO rentals (
             nama, nik, status_pasutri, status_kewarganegaraan, 
             jenis_sewa, unit_number, metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin, 
-            tanggal_checkout, lama_menginap, user_email
+            tanggal_checkout, lama_menginap, user_pengguna_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const params = [
       nama, normalizedNik, db_status_pasutri, status_kewarganegaraan,
       jenis_sewa, unit_number, metode_pembayaran, metode_pembayaran === 'Others' ? metode_lain : null,
-      tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_email
+        tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_id
     ];
 
     await conn.beginTransaction();
@@ -945,9 +946,9 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     const newRentalId = result.insertId;
 
     // Add creation event to logs
-    const logQuery = `INSERT INTO rental_logs (action, field_changed, new_value, email, rental_id) VALUES ?`;
+    const logQuery = `INSERT INTO rental_logs (action, field_changed, new_value, pengguna_id, rental_id) VALUES ?`;
     const logEntries = [
-      ['create', 'all', JSON.stringify(req.body), req.user.email, newRentalId]
+      ['create', 'all', JSON.stringify(req.body), req.user.id, newRentalId]
     ];
     await conn.query(logQuery, [logEntries]);
 

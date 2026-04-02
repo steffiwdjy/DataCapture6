@@ -1,0 +1,29 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "test",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"\"const mysql = require('mysql2/promise'); const pool = mysql.createPool({ host: process.env.SRUSUN_MYSQL_HOST, user: process.env.SRUSUN_MYSQL_USER, password: process.env.SRUSUN_MYSQL_PASSWORD, database: process.env.SRUSUN_MYSQL_DATABASE }); pool.query('SHOW COLUMNS FROM rentals').then(([rows]) => console.log(rows)).catch(console.error).finally(()=>process.exit(0));\""
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "fix",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"-e",
+				"const fs = require('fs');\nlet code = fs.readFileSync('app.js', 'utf8');\n\n// Replace table columns\ncode = code.replace(/r\\.user_email/g, 'r.user_pengguna_id');\ncode = code.replace(/r\\.diedit_oleh/g, 'r.editor_pengguna_id');\ncode = code.replace(/u\\.user_email/g, 'u.user_pengguna_id');\n\ncode = code.replace(/user_email = \\?/g, 'user_pengguna_id = ?');\ncode = code.replace(/diedit_oleh = \\?/g, 'editor_pengguna_id = ?');\n// \"user_email,\" -> \"user_pengguna_id,\"\ncode = code.replace(/user_email,/g, 'user_pengguna_id,');\ncode = code.replace(/user_email as/g, 'user_pengguna_id as');\ncode = code.replace(/GROUP BY user_email/g, 'GROUP BY user_pengguna_id');\n\n// violations\ncode = code.replace(/uploaded_by/g, 'pengguna_id');\n\n// JS properties\ncode = code.replace(/req\\.user\\.email/g, 'req.user.id');\ncode = code.replace(/user\\.email/g, 'user.id');\ncode = code.replace(/changedFields\\.diedit_oleh/g, 'changedFields.editor_pengguna_id');\n\n// specific variables\ncode = code.replace(/req\\.body\\.agent_email/g, 'req.body.agent_id');\ncode = code.replace(/let agent_email = req\\.user\\.id;/g, 'let agent_id = req.user.id;');\ncode = code.replace(/agent_email = req\\.body\\.agent_id/g, 'agent_id = req.body.agent_id');\ncode = code.replace(/resolvedAgentEmail/g, 'resolvedAgentId');\ncode = code.replace(/agent_email as agent_email/g, 'user_pengguna_id as agent_id');\ncode = code.replace(/email,/g, 'pengguna_id,'); // rental_logs email field\n\nfs.writeFileSync('app.js', code);"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "fix"
+		}
+	]
+}

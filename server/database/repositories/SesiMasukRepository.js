@@ -36,9 +36,13 @@ class SesiMasukRepository {
     static async readToken(token) {
         try {
             let findLoginSession;
+            let finalToken = token;
+            if (token && token.startsWith('Bearer ')) {
+                finalToken = token.slice(7);
+            }
 
             findLoginSession = await SesiMasukModel.findOne({
-                where: { token: token },
+                where: { token: finalToken },
             });
 
             if (!findLoginSession) {
@@ -99,9 +103,8 @@ class SesiMasukRepository {
             });
 
             if (!findLoginSession) {
-                const newError = new Error("sesi_id tidak ditemukan.");
-                newError.status = 404;
-                throw newError;
+                // Session may have already been deleted, no need to throw an error
+                return true;
             }
 
             const deleteLoginSession = await SesiMasukModel.destroy({

@@ -444,11 +444,16 @@ class PenggunaController {
     }
 
     static async getUserSession(req, res) {
-        const token = req.headers["authorization"];
+        const authHeader = req.headers["authorization"];
         const UserID = req.dataSession.UserID;
 
         try {
-            let readSession = await SesiMasukRepository.readToken(token);
+            let token = authHeader;
+            if (token && token.startsWith('Bearer ')) {
+                token = token.slice(7);
+            }
+
+            let readSession = await SesiMasukRepository.readToken(authHeader);
             if (!readSession) {
                 return res.status(401).json({ message: "Sesi anda telah berakhir" });
             }
