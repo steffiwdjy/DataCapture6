@@ -883,7 +883,7 @@
       const token = session?.token;
       if (!token) {
         // Redirect to SRusun for auth, which will forward the session back via ?session= param
-        window.location.href = '/login';
+        window.location.href = 'https://member.thejarrdin.com/login';
         return;
       }
       try {
@@ -894,7 +894,7 @@
           showMainSection();
         } else {
           localStorage.removeItem('userSession');
-          window.location.href = '/login';
+          window.location.href = 'https://member.thejarrdin.com/login';
         }
       } catch (error) {
         showAlert('Gagal terhubung ke server.', 'danger');
@@ -915,7 +915,7 @@
       await fetch('/api/logout', { method: 'POST', headers: getAuthHeaders() });
       localStorage.removeItem('userSession');
       currentUser = null;
-      window.location.href = '/login';
+      window.location.href = 'https://member.thejarrdin.com/login';
     }
 
     // Page titles and header options per page
