@@ -18,12 +18,12 @@ function Logout() {
             };
             try {
                 await axios.get(`${urlServer}/logout`, headers);
-                // console.log(response);
 
                 // Remove userSession from localStorage
                 localStorage.removeItem("userSession");
-                // Redirect to login page or home page
-                navigate("/login"); // Change this to the path you want to navigate to after logout
+                
+                // Redirect to visitor to clear its session via url param
+                window.location.href = "https://visitor.thejarrdin.com/?logout=true";
             } catch (error) {
                 // console.log(error.message);
             }

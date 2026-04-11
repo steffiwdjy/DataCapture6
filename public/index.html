@@ -832,6 +832,16 @@
     async function checkAuthStatus() {
       // Accept token from OTP redirect via URL param (?token=xxx)
       const urlParams = new URLSearchParams(window.location.search);
+
+      // Handle logout param to remove session
+      if (urlParams.get('logout') === 'true') {
+        localStorage.removeItem('userSession');
+        currentUser = null;
+        window.history.replaceState({}, '', window.location.pathname);
+        window.location.href = 'https://member.thejarrdin.com/login';
+        return;
+      }
+
       const urlToken = urlParams.get('token');
       if (urlToken) {
         try {
