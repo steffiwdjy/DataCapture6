@@ -48,7 +48,7 @@
 
   <script>
     // Redirects to SRusun Member login page; SRusun will forward the session back via ?session= param
-    const SRUSUN_URL = 'http://localhost:5173';
+    const SRUSUN_URL = 'http://member.thejarrdin.com';
     const returnUrl = encodeURIComponent(window.location.origin);
     document.getElementById('otpLink').href = `${SRUSUN_URL}/?returnUrl=${returnUrl}`;
   </script>

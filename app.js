@@ -37,6 +37,7 @@ const allowedOrigins = [
   'https://webmember.srusun.id',
   'https://member.thejarrdin.com',
   'https://apimember.thejarrdin.com',
+  'https://visitor.thejarrdin.com',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:3001',
