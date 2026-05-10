@@ -125,8 +125,8 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                email: emailInputValue,  // Make sure this is "email", not "Email" or "username"
-                password: passwordInputValue 
+                email: email, 
+                password: password 
             })
         });
         const data = await response.json();

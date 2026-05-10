@@ -668,16 +668,21 @@ app.get('/api/dashboard/agent-performance', checkAdmin, async (req, res) => {
 
 
 // --- 4. VIOLATIONS ---
+// --- 4. VIOLATIONS ---
 app.post('/api/dashboard/violations', checkAdmin, upload.single('photo'), async (req, res) => {
   const { rental_id, description } = req.body;
   const photo_url = req.file ? `/uploads/${req.file.filename}` : null;
+  
   try {
+    // Added 'uploaded_by' to the query and passed req.user.nama
     await pool.query(
-      `INSERT INTO violations (rental_id, description, photo_url, pengguna_id) VALUES (?, ?, ?, ?)`,
-      [rental_id, description, photo_url, req.user.id]
+      `INSERT INTO violations (rental_id, description, photo_url, pengguna_id, uploaded_by) VALUES (?, ?, ?, ?, ?)`,
+      [rental_id, description, photo_url, req.user.id, req.user.nama || req.user.email]
     );
     res.json({ success: true, message: 'Laporan pelanggaran berhasil diupload.' });
   } catch (error) {
+    // Always log the error so your terminal tells you exactly what went wrong next time!
+    console.error("Violation Upload Error:", error); 
     res.status(500).json({ success: false, message: 'Gagal upload laporan.' });
   }
 });
