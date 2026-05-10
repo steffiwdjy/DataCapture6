@@ -73,7 +73,9 @@ const pool = mysql.createPool({
   database: process.env.SRUSUN_MYSQL_DATABASE,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
 
 // --- Security Middleware ---
