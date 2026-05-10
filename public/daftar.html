@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daftar - Data Capture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --theme: #399051;
+      --themeHover: #2e8546;
+    }
+    * {
+      font-family: "Montserrat", sans-serif !important;
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f3f7fb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .login-container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0px 4px 25px 0px rgba(0, 0, 0, 0.06);
+      width: 100%;
+      max-width: 400px;
+    }
+    .login-container h2 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #555;
+      font-weight: 500;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .btn-success {
+      width: 100%;
+      background-color: var(--theme);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 10px;
+      transition: background-color 0.2s;
+    }
+    .btn-success:hover {
+      background-color: var(--themeHover);
+    }
+    .alert {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-size: 14px;
+      display: none;
+    }
+    .alert-danger {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .alert-success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .text-center {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+    }
+    .text-center a {
+      color: var(--theme);
+      text-decoration: none;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Daftar Akun</h2>
+    <div id="alert-message" class="alert"></div>
+    <form id="register-form">
+      <div class="form-group">
+        <label for="name">Nama Lengkap</label>
+        <input type="text" id="name" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" required>
+      </div>
+      <div class="form-group">
+        <label for="nib">NIB (13 Digit)</label>
+        <input type="text" id="nib" minlength="13" maxlength="13" required>
+      </div>
+      <div class="form-group">
+        <label for="role">Role</label>
+        <select id="role" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;" required>
+          <option value="">Pilih Role</option>
+          <option value="2">Pengelola</option>
+          <option value="4">Pelaku Komersil</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-success">Daftar</button>
+    </form>
+    <div class="text-center">
+      Sudah punya akun? <a href="/login.html">Login disini</a>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('register-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const nib = document.getElementById('nib').value;
+      const role = document.getElementById('role').value;
+      const alertDiv = document.getElementById('alert-message');
+      
+      try {
+        const response = await fetch('/api/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name, email, password, nib, role })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+          alertDiv.innerText = data.message;
+          alertDiv.className = 'alert alert-success';
+          alertDiv.style.display = 'block';
+          setTimeout(() => {
+            window.location.href = '/login.html';
+          }, 2000);
+        } else {
+          alertDiv.innerText = data.message || 'Registrasi gagal';
+          alertDiv.className = 'alert alert-danger';
+          alertDiv.style.display = 'block';
+        }
+      } catch (err) {
+        alertDiv.innerText = 'Terjadi kesalahan pada server';
+        alertDiv.className = 'alert alert-danger';
+        alertDiv.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -6,13 +6,15 @@ import { inputValidator } from "../../utils/inputValidator";
 import useValidator from "../../constaints/FormValidation";
 import axios from "axios";
 import { urlClient, urlServer } from "../../utils/endpoint";
-// import { useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import UseSessionCheck from "../../utils/useSessionCheck";
 import formatTime from "../../utils/formatTime";
 
 function Login() {
     UseSessionCheck();
-    // const navigate = useNavigate();
+    const location = useLocation();
+    const isFromVisitor = new URLSearchParams(location.search).get("from") === "visitor";
+
     const [dataLogin, setDataLogin] = useState({});
     const { ValidationStatus, setValidationStatus, setCloseAlert } = useValidator();
     // const [noTelp, setNoTelp] = useState("");
@@ -166,7 +168,14 @@ function Login() {
                 if (userSession.AuthKey !== "") {
                     localStorage.setItem("userSession", JSON.stringify(userSession));
                 }
-                window.location.href = `${urlClient}/`;
+                // Redirect ke halaman utama tanpa terikat ke variabel urlClient, 
+                // sehingga menyesuaikan domain saat ini (visitor maupun member)
+                if (isFromVisitor) {
+                    localStorage.setItem("isVisitorDomain", "true");
+                } else {
+                    localStorage.removeItem("isVisitorDomain");
+                }
+                window.location.href = "/";
                 setLoading(false);
             }
         } catch (error) {

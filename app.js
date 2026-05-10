@@ -6,6 +6,7 @@ const mysql = require('mysql2/promise');
 const path = require('path');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const multer = require('multer');
 const { Parser } = require('json2csv');
@@ -133,27 +134,110 @@ const checkAdmin = (req, res, next) => {
 
 // ================== AUTHENTICATION ==================
 app.post('/api/login', async (req, res) => {
-  const { email } = req.body;
+  // 1. Safely extract and trim the email to prevent trailing space errors
+  const email = req.body.email ? req.body.email.trim() : undefined;
+  const password = req.body.password;
+
+  // 2. Validate that the frontend actually sent the email!
+  if (!email || !password) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Email atau password kosong. Cek payload dari login.html!' 
+    });
+  }
+
   try {
-    const [rows] = await pool.query(`
-      SELECT p.*, GROUP_CONCAT(r.nama) as role_names
-      FROM pengguna p
-      LEFT JOIN pengguna_role pr ON p.id = pr.user_id
-      LEFT JOIN role r ON pr.role_id = r.id
-      WHERE p.email = ?
-      GROUP BY p.id
-    `, [email]);
+    // Arahkan query ke tabel Pengguna, bukan users
+    const [rows] = await pool.query('SELECT * FROM Pengguna WHERE email = ?', [email]);
+    
     if (rows.length === 0) {
-      return res.status(401).json({ success: false, message: "Email tidak ditemukan." });
+      return res.status(401).json({ success: false, message: 'Email tidak ditemukan.' });
     }
-    const pengguna = rows[0];
-    const roles = pengguna.role_names ? pengguna.role_names.split(',') : [];
-    const payload = { id: pengguna.id, email: pengguna.email, nama: pengguna.nama, no_unit: pengguna.no_unit, kode_user: pengguna.kode_user, roles };
+    
+    const user = rows[0];
+    
+    // Verifikasi Password 
+    const isMatch = await bcrypt.compare(password, user.password); 
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Password salah.' });
+    }
+
+    // Ambil role user dari tabel Role agar middleware checkAdmin () berfungsi
+    const [roleRows] = await pool.query(`
+      SELECT r.nama as role_name
+      FROM pengguna_role pr
+      JOIN Role r ON r.role_id = pr.role_id
+      WHERE pr.pengguna_id = ?
+    `, [user.pengguna_id]);
+
+    const roles = roleRows.map(r => r.role_name);
+
+    // Susun payload menggunakan ID dari Pengguna
+    const payload = { 
+      id: user.pengguna_id, 
+      email: user.email, 
+      nama: user.nama, 
+      roles: roles 
+    };
+    
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '12h' });
     res.json({ success: true, token, user: payload });
+    
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ success: false, message: "Server error." });
+    console.error('Login Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.post('/api/register', async (req, res) => {
+  const { name, email, password, nib, role } = req.body;
+  
+  if (!email || !password || !nib || !name || !role) {
+    return res.status(400).json({ success: false, message: 'Semua kolom harus diisi.' });
+  }
+  if (nib.length !== 13) {
+    return res.status(400).json({ success: false, message: 'NIB harus 13 digit.' });
+  }
+  
+  const conn = await pool.getConnection();
+  try {
+    // Check existing email purely in Pengguna table
+    const [existing] = await conn.query('SELECT * FROM Pengguna WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      conn.release();
+      return res.status(400).json({ success: false, message: 'Email sudah terdaftar.' });
+    }
+    
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    await conn.beginTransaction();
+
+    // 1. Manually find the current highest pengguna_id in the table
+    const [idRows] = await conn.query('SELECT MAX(pengguna_id) as max_id FROM Pengguna');
+    
+    // 2. Add 1 to create the next ID (if the table is empty, start at 1)
+    const nextId = (idRows[0].max_id || 0) + 1;
+    
+    // 3. Inject nextId directly into the INSERT query for Pengguna
+    await conn.query(
+      'INSERT INTO Pengguna (pengguna_id, kode_user, nama, no_unit, email, password, nib, status, is_ketentuan) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1)', 
+      [nextId, name, name, '', email, hashedPassword, nib]
+    );
+    
+    // 4. Link the new user to their role in pengguna_role
+    await conn.query('INSERT INTO pengguna_role (pengguna_id, role_id) VALUES (?, ?)', [nextId, role]);
+    
+    // (The legacy users table insertion has been completely removed)
+
+    await conn.commit();
+    conn.release();
+    res.json({ success: true, message: 'Registrasi berhasil, silakan login.' });
+    
+  } catch (error) {
+    if (conn) await conn.rollback();
+    if (conn) conn.release();
+    console.error('Register Error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
 

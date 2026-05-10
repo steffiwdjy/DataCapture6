@@ -193,11 +193,14 @@ export function multiRoleAkses(roles) {
     return aksesUnik;
 }
 
-export function listHakAkses(fitur) {
+export function listHakAkses(fitur, isVisitor) {
+    const isVisitorDomain = isVisitor !== undefined ? isVisitor : (typeof window !== "undefined" && (window.location.hostname === "visitor.thejarrdin.com" || localStorage.getItem("isVisitorDomain") === "true"));
+    
     const hasil = fitur?.map((nama) => ({
         label: nama,
         key: nama === "Penyewaan Unit" ? "/sewa" : "/" + nama.toLowerCase().replace(/\s+/g, ""),
         icon: HakAksesIcon[nama],
+        disabled: isVisitorDomain && nama !== "Penyewaan Unit",
     }));
 
     return hasil;

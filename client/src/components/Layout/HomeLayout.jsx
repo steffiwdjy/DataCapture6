@@ -42,10 +42,16 @@ function HomeLayout({ dataUser, contentInfoRole, fiturUser }) {
                             {arrAkses.map((akses, j) => (
                                 <div
                                     key={j}
-                                    className="menu-v3 bg-theme-subtle d-flex shadow rounded flex-column justify-content-center align-items-center p-5"
-                                    style={{ cursor: "pointer", height: "10rem" }}
+                                    className={`menu-v3 ${akses.disabled ? 'bg-secondary' : 'bg-theme-subtle'} d-flex shadow rounded flex-column justify-content-center align-items-center p-5`}
+                                    style={{ 
+                                        cursor: akses.disabled ? "not-allowed" : "pointer", 
+                                        height: "10rem",
+                                        opacity: akses.disabled ? 0.5 : 1
+                                    }}
                                     onClick={() => {
-                                        navigate(akses.key);
+                                        if (!akses.disabled) {
+                                            navigate(akses.key);
+                                        }
                                     }}
                                 >
                                     {/* <FontAwesomeIcon icon={akses.icon} size="2xl" /> */}

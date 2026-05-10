@@ -23,7 +23,7 @@ function Logout() {
                 localStorage.removeItem("userSession");
                 
                 // Redirect to visitor to clear its session via url param
-                window.location.href = "https://visitor.thejarrdin.com/?logout=true";
+                window.location.href = "/login";
             } catch (error) {
                 // console.log(error.message);
             }

@@ -3,6 +3,10 @@ const environments = {
         urlServer: "https://apimember.thejarrdin.com",
         urlClient: "https://member.thejarrdin.com",
     },
+    visitor: {
+        urlServer: "https://apimember.thejarrdin.com",
+        urlClient: "https://visitor.thejarrdin.com",
+    },
     development: {
         urlServer: "/api",
         urlClient: "http://localhost:5173",
@@ -21,6 +25,9 @@ const resolveEnvironment = () => {
 
     if (typeof window !== "undefined") {
         const host = window.location.hostname;
+        if (host === "visitor.thejarrdin.com") {
+            return "visitor";
+        }
         if (host === "web.srusun.id" || host === "webmember.srusun.id") {
             return "srusun";
         }

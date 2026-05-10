@@ -14,9 +14,11 @@ function Sidebar() {
     const [fiturUser, setFiturUser] = useState([]);
     const [isLogout, setLogout] = useState(false);
 
+    const isVisitorDomain = typeof window !== "undefined" && (window.location.hostname === "visitor.thejarrdin.com" || localStorage.getItem("isVisitorDomain") === "true");
+
     useEffect(() => {
         const transformedFitur = () => {
-            const arr = listHakAkses(dataUser?.Fitur);
+            const arr = listHakAkses(dataUser?.Fitur, isVisitorDomain);
 
             setFiturUser(arr);
         };
@@ -28,17 +30,28 @@ function Sidebar() {
         label: item.label,
         key: item.key,
         icon: <img src={item.icon} width={25} height={25} alt={item.label} />,
+        disabled: item.disabled,
     }));
-    const newItem = {
-        label: "Home",
-        key: "/",
-        icon: "https://img.icons8.com/ios/100/home--v1.png",
-    };
-    // Menambahkan item baru pada index awal
-    itemsMenu.unshift({
-        label: newItem.label,
-        key: newItem.key,
-        icon: <img src={newItem.icon} width={25} height={25} alt={newItem.label} />,
+    // const newItem = {
+    //     label: "Home",
+    //     key: "/",
+    //     icon: "https://img.icons8.com/ios/100/home--v1.png",
+    //     disabled: isVisitorDomain, // Disable Home on visitor domain
+    // };
+    // // Menambahkan item baru pada index awal
+    // itemsMenu.unshift({
+    //     label: newItem.label,
+    //     key: newItem.key,
+    //     icon: <img src={newItem.icon} width={25} height={25} alt={newItem.label} />,
+    //     disabled: newItem.disabled,
+    // });
+    
+    // Add logout menu in sidebar
+    itemsMenu.push({
+        label: "Keluar",
+        key: "logout",
+        icon: <LogoutOutlined />,
+        disabled: false,
     });
 
     const { isSidebarOpen, setIsSidebarOpen } = toogleSidebar();
@@ -88,20 +101,13 @@ function Sidebar() {
                     items={itemsMenu}
                     defaultSelectedKeys={[window.location.pathname]}
                     onClick={({ key }) => {
-                        navigate(key);
+                        if (key === "logout") {
+                            setLogout(true);
+                        } else {
+                            navigate(key);
+                        }
                     }}
                 />
-
-                <Button
-                    className="ms-4 me-3"
-                    type="primary"
-                    danger
-                    ghost
-                    onClick={() => setLogout(true)}
-                >
-                    <LogoutOutlined />
-                    {!isSidebarOpen && "Keluar"}
-                </Button>
             </ConfigProvider>
             <Modal
                 title="Apakah anda yakin untuk keluar?"

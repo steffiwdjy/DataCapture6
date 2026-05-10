@@ -588,14 +588,19 @@
           </div>
         </div>
         <ul class="sidebar-menu">
-          <li><a class="menu-item" href="https://member.thejarrdin.com" target="_blank"><span class="menu-icon">🏠</span><span class="menu-label">Home</span></a></li>
+          <!-- <li><a class="menu-item" href="https://member.thejarrdin.com" target="_blank"><span class="menu-icon">🏠</span><span class="menu-label">Home</span></a></li> -->
           <li><button class="menu-item" id="menu-dashboard" onclick="showPage('dashboard-section')"><span class="menu-icon">📈</span><span class="menu-label">Dashboard</span></button></li>
           <li><button class="menu-item" id="menu-input" onclick="showPage('input-form-section')"><span class="menu-icon">📋</span><span class="menu-label">Input Data Penyewa</span></button></li>
           <li><button class="menu-item" id="menu-view" onclick="showPage('view-data-section')"><span class="menu-icon">📊</span><span class="menu-label">Lihat / Edit Data</span></button></li>
           <li><button class="menu-item admin-only" id="menu-units" onclick="showPage('unit-management-section')"><span class="menu-icon">🏢</span><span class="menu-label">Manajemen Unit</span></button></li>
         </ul>
       </div>
-
+      <div class="sidebar-footer">
+        <button class="btn-logout" onclick="logout()">
+          <span class="menu-icon" style="font-size: 16px;">🚪</span>
+          <span class="menu-label">Keluar</span>
+        </button>
+      </div>
     </div>
 
     <!-- MAIN AREA -->
@@ -838,7 +843,7 @@
         localStorage.removeItem('userSession');
         currentUser = null;
         window.history.replaceState({}, '', window.location.pathname);
-        window.location.href = 'https://member.thejarrdin.com/login';
+        window.location.href = '/login.html'; // window.location.href = '/login.html'; // window.location.href = 'https://member.thejarrdin.com/login?from=visitor';
         return;
       }
 
@@ -883,7 +888,7 @@
       const token = session?.token;
       if (!token) {
         // Redirect to SRusun for auth, which will forward the session back via ?session= param
-        window.location.href = 'https://member.thejarrdin.com/login';
+        window.location.href = '/login.html'; // window.location.href = '/login.html'; // window.location.href = 'https://member.thejarrdin.com/login?from=visitor';
         return;
       }
       try {
@@ -894,7 +899,7 @@
           showMainSection();
         } else {
           localStorage.removeItem('userSession');
-          window.location.href = 'https://member.thejarrdin.com/login';
+          window.location.href = '/login.html'; // window.location.href = '/login.html'; // window.location.href = 'https://member.thejarrdin.com/login?from=visitor';
         }
       } catch (error) {
         showAlert('Gagal terhubung ke server.', 'danger');
@@ -915,7 +920,7 @@
       await fetch('/api/logout', { method: 'POST', headers: getAuthHeaders() });
       localStorage.removeItem('userSession');
       currentUser = null;
-      window.location.href = 'https://member.thejarrdin.com/login';
+      window.location.href = '/login.html'; // window.location.href = '/login.html'; // window.location.href = 'https://member.thejarrdin.com/logout';
     }
 
     // Page titles and header options per page

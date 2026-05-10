@@ -4,7 +4,7 @@ const start = code.indexOf("app.post('/api/login',");
 const end = code.indexOf("app.post('/api/logout',");
 
 if (start > -1 && end > -1) {
-  const newLogin = app.post('/api/login', async (req, res) => {
+  const newLogin = `app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
@@ -50,7 +50,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-;
+`;
   code = code.slice(0, start) + newLogin + code.slice(end);
   fs.writeFileSync('app.js', code);
   console.log('Replaced');

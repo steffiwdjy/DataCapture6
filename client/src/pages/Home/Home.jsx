@@ -89,7 +89,8 @@ function Home() {
     useEffect(() => {
         const transformedFitur = () => {
             console.log(dataUser,"DATA USER")
-            const arr = listHakAkses(dataUser?.Fitur);
+            const isVisitorDomain = typeof window !== "undefined" && (window.location.hostname === "visitor.thejarrdin.com" || localStorage.getItem("isVisitorDomain") === "true");
+            const arr = listHakAkses(dataUser?.Fitur, isVisitorDomain);
             const arr2 = bagiArrayAkses(arr);
             console.log(arr2)
             setFiturUser(arr2);
