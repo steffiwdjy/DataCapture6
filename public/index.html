@@ -692,7 +692,6 @@
             <input type="checkbox" id="comment-filter" onchange="loadRentalsData('default', true)" style="width:auto; margin:0;">
             <label for="comment-filter" style="margin:0; font-weight:normal; white-space:nowrap; font-size:13px;">Tampilkan data dengan pelanggaran saja</label>
           </div>
-          <div id="pagination-controls-top" class="pagination-container"></div>
           <div id="rentals-table" style="overflow-x: auto;"></div>
           <hr style="margin:16px 0; border:none; border-top:1px solid #e8e8e8;">
           <h3 style="font-size:15px; margin-bottom:12px;">📝 Edit Data Penyewa</h3>
@@ -972,9 +971,14 @@
       if (pageId === 'unit-management-section') loadAgentsForManagement();
     }
 
+    let searchTimeout = null;
     // Called by the header search input
     function onHeaderSearch(val) {
-      filterRentalsTable(val);
+      if (searchTimeout) clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        // Reset ke halaman 1 dan muat ulang data dari server
+        loadRentalsData(currentViewMode, true);
+      }, 500);
     }
 
     // Filter visible table rows by a text query (client-side, on the rendered table)
@@ -1089,8 +1093,16 @@
 
         const result = await response.json();
 
-        // 4. Show success/error message and redirect on success
-        showAlert(result.message, result.success ? 'success' : 'danger');
+        // 4. Show only the prediction warning when the model flags a violation risk
+        if (!result.success) {
+          showAlert(result.message, 'danger');
+          return;
+        }
+
+        if (result.prediction && result.prediction.class === 1) {
+          showPredictionNotification(result.prediction.notification || '⚠️Penyewa Berpotensi Melakukan Pelanggaran!');
+        }
+
         if (result.success) {
           document.getElementById('rental-input-form').reset();
           initializeDateTime(); // Reset date fields
@@ -1112,13 +1124,11 @@
 
       const tableContainer = document.getElementById('rentals-table');
       const expandersContainer = document.getElementById('rentals-expanders');
-      const paginationTop = document.getElementById('pagination-controls-top');
       const paginationBottom = document.getElementById('pagination-controls-bottom');
 
       tableContainer.innerHTML = '<p>Memuat data...</p>';
       expandersContainer.innerHTML = '';
-      paginationTop.innerHTML = '';
-      paginationBottom.innerHTML = '';
+      if (paginationBottom) paginationBottom.innerHTML = '';
 
       // --- 1. Buat URL berdasarkan mode & filter ---
       let baseUrl;
@@ -1130,6 +1140,10 @@
         baseUrl = '/api/rentals';
         const commentFilter = document.getElementById('comment-filter').checked;
         queryParams.append('commentFilter', commentFilter);
+        const searchInput = document.getElementById('header-search-input');
+        if (searchInput && searchInput.value) {
+          queryParams.append('search', searchInput.value.trim());
+        }
       } else if (mode === 'duplicates') {
         baseUrl = '/api/rentals/duplicates';
       } else {
@@ -1562,12 +1576,10 @@
 
 
     function renderPagination(totalItems, totalPages, page) {
-      const containerTop = document.getElementById('pagination-controls-top');
       const containerBottom = document.getElementById('pagination-controls-bottom');
 
       if (totalPages <= 1) {
-        containerTop.innerHTML = '';
-        containerBottom.innerHTML = '';
+        if (containerBottom) containerBottom.innerHTML = '';
         return;
       }
 
@@ -1607,8 +1619,7 @@
       const endItem = Math.min(page * itemsPerPage, totalItems);
       paginationHTML += `<span class="pagination-info">Menampilkan ${startItem}-${endItem} dari ${totalItems} data</span>`;
 
-      containerTop.innerHTML = paginationHTML;
-      containerBottom.innerHTML = paginationHTML;
+      if (containerBottom) containerBottom.innerHTML = paginationHTML;
     }
 
 
@@ -1763,6 +1774,20 @@
       const container = document.getElementById('alert-container');
       const alertDiv = document.createElement('div');
       alertDiv.className = `alert alert-${type}`;
+      alertDiv.textContent = message;
+      container.appendChild(alertDiv);
+      setTimeout(() => alertDiv.remove(), 5000);
+    }
+
+    function showPredictionNotification(message) {
+      const container = document.getElementById('alert-container');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alert';
+      alertDiv.style.backgroundColor = '#fff3cd';
+      alertDiv.style.borderColor = '#ffe69c';
+      alertDiv.style.color = '#664d03';
+      alertDiv.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.08)';
+      alertDiv.style.fontWeight = '600';
       alertDiv.textContent = message;
       container.appendChild(alertDiv);
       setTimeout(() => alertDiv.remove(), 5000);

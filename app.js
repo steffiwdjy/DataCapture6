@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const cors = require('cors');
 const multer = require('multer');
+const { spawnSync } = require('child_process');
 const { Parser } = require('json2csv');
 require('dotenv').config({
   path: path.resolve(__dirname, '.env'),
@@ -19,6 +20,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-key-jarrdin';
 const SRUSUN_JWT_SECRET = process.env.SRUSUN_JWT_SECRET || 'jarrdin-cihampelas';
+const MODEL_PATH = path.resolve(__dirname, 'model_knn.pkl');
+const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || path.resolve(__dirname, '.venv', 'Scripts', 'python.exe');
 
 // --- File Upload Configuration ---
 const storage = multer.diskStorage({
@@ -264,6 +267,7 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const hasCommentFilter = req.query.commentFilter === 'true';
+    const searchBox = req.query.search || '';
     const offset = (page - 1) * limit;
 
     const user = req.user;
@@ -281,7 +285,15 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
       whereClauses.push("(r.komentar IS NOT NULL AND r.komentar != '[]' AND r.komentar != '')");
     }
 
-    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+    // Filter berdasarkan pencarian
+    if (searchBox) {
+      const searchPattern = `%${searchBox}%`;
+      whereClauses.push("(r.nama LIKE ? OR r.nik LIKE ? OR r.unit_number LIKE ?)");
+      params.push(searchPattern, searchPattern, searchPattern);
+    } // FIXED: Added missing closing bracket here
+
+    // FIXED: Defined whereSql before the queries
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     // --- Query 1: Menghitung Total Item ---
     const countQuery = `SELECT COUNT(*) as totalItems FROM rentals r ${whereSql}`;
@@ -312,6 +324,7 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
     const dataParams = [...params, limit, offset];
     await pool.query('SET SESSION group_concat_max_len = 1000000');
     const [rows] = await pool.query(dataQuery, dataParams);
+    
     rows.forEach(r => {
       r.status_pasutri = r.status_pasutri === 'Ya' ? 'Ya' : 'Belum Menikah';
       try {
@@ -350,7 +363,6 @@ app.get('/api/rentals', checkAuth, async (req, res) => {
         totalPages: totalPages
       }
     });
-
 
   } catch (error) {
     console.error("Error fetching rentals with logs:", error);
@@ -754,7 +766,7 @@ async function getOccupiedUnits() {
     const [occupied] = await pool.query(
       `SELECT DISTINCT unit_number 
       FROM rentals 
-      WHERE tanggal_checkout >= CURDATE()`
+      WHERE waktu_checkout IS NULL`
     );
     return new Set(occupied.map(r => r.unit_number));
   } catch (error) {
@@ -912,7 +924,7 @@ app.delete('/api/units/:id', checkAdmin, async (req, res) => {
              WHERE unit_number = (
                 SELECT unit_number 
                 FROM units WHERE unit_number = ?
-             ) AND tanggal_checkout >= CURDATE()`,
+             ) AND waktu_checkout IS NULL`,
       [id]
     );
 
@@ -998,6 +1010,97 @@ function calculateDays(checkin, checkout) {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
+function parseHourValue(value, fallback = 0) {
+  if (!value) return fallback;
+  const [hours] = String(value).split(':');
+  const parsedHour = parseInt(hours, 10);
+  return Number.isFinite(parsedHour) ? parsedHour : fallback;
+}
+
+function predictRentalClassification({ lama_menginap, waktu_checkin, waktu_checkout, jenis_sewa, status_pasutri, status_kewarganegaraan, metode_pembayaran }) {
+  const payload = {
+    lama_menginap: Number.parseInt(lama_menginap, 10) || 0,
+    checkin_hour: parseHourValue(waktu_checkin, 0),
+    checkout_hour: parseHourValue(waktu_checkout || waktu_checkin, parseHourValue(waktu_checkin, 0)),
+    jenis_sewa: jenis_sewa || 'Unknown',
+    status_pasutri: status_pasutri || 'Unknown',
+    status_kewarganegaraan: status_kewarganegaraan || 'Unknown',
+    metode_pembayaran: metode_pembayaran || 'Unknown'
+  };
+
+  const pythonCode = `
+import json
+import os
+import warnings
+from pathlib import Path
+
+import joblib
+import pandas as pd
+
+warnings.filterwarnings('ignore')
+
+payload = json.loads(os.environ['PREDICT_PAYLOAD'])
+bundle = joblib.load(Path(os.environ['MODEL_PATH']))
+model = bundle['model']
+label_encoders = bundle['label_encoders']
+selected_features = bundle['selected_features']
+
+def encode_value(feature_name, value):
+    encoder = label_encoders.get(feature_name)
+    if encoder is None:
+        return value
+    candidate = value if value in list(encoder.classes_) else 'Unknown'
+    return int(encoder.transform([candidate])[0])
+
+row = {
+    'lama_menginap': int(payload.get('lama_menginap') or 0),
+    'checkin_hour': int(payload.get('checkin_hour') or 0),
+    'checkout_hour': int(payload.get('checkout_hour') or 0),
+    'jenis_sewa': encode_value('jenis_sewa', payload.get('jenis_sewa', 'Unknown')),
+    'status_pasutri': encode_value('status_pasutri', payload.get('status_pasutri', 'Unknown')),
+    'status_kewarganegaraan': encode_value('status_kewarganegaraan', payload.get('status_kewarganegaraan', 'Unknown')),
+    'metode_pembayaran': encode_value('metode_pembayaran', payload.get('metode_pembayaran', 'Unknown'))
+}
+
+# Safely build the feature array, defaulting to 0 if a feature is somehow missing to prevent NaN errors
+final_features = [row.get(feature, 0) for feature in selected_features]
+frame = pd.DataFrame([final_features], columns=selected_features)
+
+prediction = int(model.predict(frame)[0])
+probability = None
+
+if hasattr(model, 'predict_proba'):
+    probability = float(model.predict_proba(frame)[0][prediction])
+
+print(json.dumps({
+    'class': prediction,
+    'label': 'Aman' if prediction == 0 else 'Melanggar',
+    'notification': '⚠️Penyewa Berpotensi Melakukan Pelanggaran!' if prediction == 1 else None,
+    'probability': probability
+}))
+`;
+
+  const result = spawnSync(PYTHON_EXECUTABLE, ['-c', pythonCode], {
+    env: {
+      ...process.env,
+      MODEL_PATH: MODEL_PATH,
+      PREDICT_PAYLOAD: JSON.stringify(payload)
+    },
+    encoding: 'utf8',
+    maxBuffer: 10 * 1024 * 1024
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    throw new Error(result.stderr || 'Gagal menjalankan prediksi model.');
+  }
+
+  return JSON.parse((result.stdout || '').trim() || '{}');
+}
+
 // NEW ENDPOINT: Save a new rental record
 app.post('/api/rentals', checkAuth, async (req, res) => {
   const conn = await pool.getConnection();
@@ -1030,7 +1133,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     const params = [
       nama, normalizedNik, db_status_pasutri, status_kewarganegaraan,
       jenis_sewa, unit_number, metode_pembayaran, metode_pembayaran === 'Others' ? metode_lain : null,
-        tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_id
+      tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_id
     ];
 
     await conn.beginTransaction();
@@ -1045,7 +1148,27 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     await conn.query(logQuery, [logEntries]);
 
     await conn.commit();
-    res.json({ success: true, message: "Data penyewa berhasil disimpan." });
+    
+    let prediction = null;
+    try {
+      prediction = predictRentalClassification({
+        lama_menginap,
+        waktu_checkin,
+        waktu_checkout: req.body.waktu_checkout,
+        jenis_sewa,
+        status_pasutri: db_status_pasutri,
+        status_kewarganegaraan,
+        metode_pembayaran
+      });
+    } catch (predictionError) {
+      console.error('Prediction Error:', predictionError);
+    }
+
+    res.json({
+      success: true,
+      message: "Data penyewa berhasil disimpan.",
+      prediction
+    });
 
   } catch (error) {
     if (conn) await conn.rollback();
