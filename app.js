@@ -20,7 +20,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'jwt-secret-key-jarrdin';
 const SRUSUN_JWT_SECRET = process.env.SRUSUN_JWT_SECRET || 'jarrdin-cihampelas';
-const MODEL_PATH = path.resolve(__dirname, 'model_knn.pkl');
+const MODEL_PATH = path.resolve(__dirname, 'model_xgboost.pkl');
 const PYTHON_EXECUTABLE = process.env.PYTHON_EXECUTABLE || path.resolve(__dirname, '.venv', 'Scripts', 'python.exe');
 
 // --- File Upload Configuration ---

@@ -9,7 +9,7 @@ const dbConfig = {
   database: 'hotel_booking_2'
 };
 
-// --- HELPER: SUSPICIOUS COMMENTS ---
+// --- SUSPICIOUS COMMENTS ---
 const suspiciousComments = [
   "Ditemukan alat suntik di tempat sampah",
   "Ditemukan kondom dalam jumlah banyak",
@@ -23,7 +23,7 @@ const suspiciousComments = [
   "Menyewakan kembali unit yang disewa"
 ];
 
-// --- HELPER: GENERATE REALISTIC NIK ---
+// --- GENERATE REALISTIC NIK ---
 function generateNIK(sex, birthDate) {
   const province = faker.helpers.arrayElement(['31', '32', '33', '34', '35', '36', '51']);
   const city = faker.string.numeric(2);
@@ -50,7 +50,7 @@ async function seed() {
 
   try {
     // =================================================
-    // STEP 0: CLEAN DATABASE
+    // CLEAN DATABASE
     // =================================================
     console.log("Cleaning old data...");
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
@@ -62,7 +62,7 @@ async function seed() {
     await connection.query('SET FOREIGN_KEY_CHECKS = 1');
 
     // =================================================
-    // STEP 1: SEED USERS
+    // SEED USERS
     // =================================================
     console.log("Seeding Users...");
     const users = [];
@@ -76,9 +76,7 @@ async function seed() {
         faker.person.fullName()
       ]);
     }
-    // Add Admin
-    // users.push([faker.internet.email(), faker.internet.password(), faker.string.numeric(13), 'Pengelola', faker.person.fullName()]);
-
+    
     await connection.query(`INSERT INTO users (email, password, nib, role, name) VALUES ?`, [users]);
     await connection.query(`
       INSERT INTO \`users\` (\`email\`, \`password\`, \`nib\`, \`role\`,name, \`created_at\`) VALUES
@@ -90,7 +88,7 @@ async function seed() {
     const allEmails = userRows.map(u => u.email);
 
     // =================================================
-    // STEP 2: SEED UNITS
+    // SEED UNITS
     // =================================================
     console.log(`Seeding Units (15 per user)...`);
     const units = [];
@@ -120,7 +118,7 @@ async function seed() {
     }
 
     // =================================================
-    // STEP 3: SEED RENTALS (BATCHED INSERT)
+    // SEED RENTALS (BATCHED INSERT)
     // =================================================
     console.log("Seeding Rentals (Generating data)...");
     const rentals = [];
@@ -219,7 +217,7 @@ async function seed() {
       ]);
     }
 
-    // --- BATCH INSERT FIX FOR 10,000 ROWS ---
+    // --- INSERT FOR 10,000 ROWS ---
     console.log("Inserting Rentals in batches...");
     const rentalChunkSize = 2000; // Insert 2000 at a time to prevent timeout
     for (let i = 0; i < rentals.length; i += rentalChunkSize) {
@@ -232,7 +230,7 @@ async function seed() {
     }
 
     // =================================================
-    // STEP 4: SEED LOGS & VIOLATIONS
+    // SEED LOGS & VIOLATIONS
     // =================================================
     console.log("Seeding Logs and Violations...");
     const [rentalRows] = await connection.query('SELECT * FROM rentals');
