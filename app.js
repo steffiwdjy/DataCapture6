@@ -407,6 +407,32 @@ app.put('/api/rentals/:id', checkAuth, async (req, res) => {
       }
     });
 
+    // Jika komentar berubah dari kosong menjadi berisi, set classification = 1
+    try {
+      if (Object.prototype.hasOwnProperty.call(changedFields, 'komentar')) {
+        const oldKom = JSON.parse(oldData.komentar || '[]');
+        const newKom = JSON.parse(newData.komentar || '[]');
+        const oldEmpty = !Array.isArray(oldKom) || oldKom.length === 0;
+        const newHasContent = Array.isArray(newKom) && newKom.length > 0;
+        if (oldEmpty && newHasContent) {
+          
+          let classificationVal = 1;
+          try {
+            const [colRes2] = await conn.query("SHOW COLUMNS FROM rentals LIKE 'classification'");
+            if (colRes2 && colRes2[0] && String(colRes2[0].Type || '').toLowerCase().startsWith('enum')) {
+              classificationVal = 'melanggar'; 
+            }
+          } catch (e) {
+            // ignore
+          }
+          changedFields.classification = classificationVal;
+          logEntries.push(['update', 'classification', String(oldData.classification || 0), String(classificationVal), req.user.id, id]);
+        }
+      }
+    } catch (e) {
+      console.error('Error handling classification update based on komentar:', e);
+    }
+
     if (Object.keys(changedFields).length > 0) {
       changedFields.editor_pengguna_id = req.user.id;
       const updateQuery = 'UPDATE rentals SET ' + Object.keys(changedFields).map(key => `${key} = ?`).join(', ') + ' WHERE id = ?';
@@ -1124,17 +1150,30 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     const lama_menginap = calculateDays(tanggal_checkin, tanggal_checkout);
     const db_status_pasutri = status_pasutri === 'Ya' ? 'Menikah' : 'Belum Menikah';
 
+    
+    let classificationInsertValue = 0;
+    try {
+      const [colRes] = await conn.query("SHOW COLUMNS FROM rentals LIKE 'classification'");
+      if (colRes && colRes[0] && String(colRes[0].Type || '').toLowerCase().startsWith('enum')) {
+        classificationInsertValue = 'normal'; // map 0 -> 'normal'
+      }
+    } catch (e) {
+      // ignore and default to numeric 0
+    }
+
     const sql = `INSERT INTO rentals (
             nama, nik, status_pasutri, status_kewarganegaraan, 
             jenis_sewa, unit_number, metode_pembayaran, metode_lain, tanggal_checkin, waktu_checkin, 
-            tanggal_checkout, lama_menginap, user_pengguna_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            tanggal_checkout, lama_menginap, user_pengguna_id, classification
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const params = [
       nama, normalizedNik, db_status_pasutri, status_kewarganegaraan,
       jenis_sewa, unit_number, metode_pembayaran, metode_pembayaran === 'Others' ? metode_lain : null,
-      tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_id
+      tanggal_checkin, waktu_checkin, tanggal_checkout, lama_menginap, agent_id, 0
     ];
+    // replace last param with mapped classificationInsertValue if it's a string
+    params[params.length - 1] = classificationInsertValue;
 
     await conn.beginTransaction();
     const [result] = await conn.query(sql, params);
