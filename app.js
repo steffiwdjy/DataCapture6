@@ -1041,9 +1041,7 @@ function parseHourValue(value, fallback = 0) {
   const [hours] = String(value).split(':');
   const parsedHour = parseInt(hours, 10);
   return Number.isFinite(parsedHour) ? parsedHour : fallback;
-}
-
-function predictRentalClassification({ lama_menginap, waktu_checkin, waktu_checkout, jenis_sewa, status_pasutri, status_kewarganegaraan, metode_pembayaran }) {
+}/* function predictRentalClassification({ lama_menginap, waktu_checkin, waktu_checkout, jenis_sewa, status_pasutri, status_kewarganegaraan, metode_pembayaran }) {
   const payload = {
     lama_menginap: Number.parseInt(lama_menginap, 10) || 0,
     checkin_hour: parseHourValue(waktu_checkin, 0),
@@ -1104,7 +1102,7 @@ print(json.dumps({
     'notification': '⚠️Penyewa Berpotensi Melakukan Pelanggaran!' if prediction == 1 else None,
     'probability': probability
 }))
-`;
+\`;
 
   const result = spawnSync(PYTHON_EXECUTABLE, ['-c', pythonCode], {
     env: {
@@ -1125,7 +1123,7 @@ print(json.dumps({
   }
 
   return JSON.parse((result.stdout || '').trim() || '{}');
-}
+} */
 
 // NEW ENDPOINT: Save a new rental record
 app.post('/api/rentals', checkAuth, async (req, res) => {
@@ -1190,6 +1188,7 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
     
     let prediction = null;
     try {
+      /*
       prediction = predictRentalClassification({
         lama_menginap,
         waktu_checkin,
@@ -1199,6 +1198,35 @@ app.post('/api/rentals', checkAuth, async (req, res) => {
         status_kewarganegaraan,
         metode_pembayaran
       });
+      */
+      
+      const authHeader = req.headers['authorization'] || (req.query.token ? `Bearer ${req.query.token}` : '');
+      const predictUrl = process.env.MODEL_API_URL || 'https://visitor-api.srusun.id/api/predict';
+      const response = await fetch(predictUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authHeader && { 'Authorization': authHeader })
+        },
+        body: JSON.stringify({
+          lama_menginap,
+          waktu_checkin,
+          waktu_checkout: req.body.waktu_checkout,
+          jenis_sewa,
+          status_pasutri: db_status_pasutri,
+          status_kewarganegaraan,
+          metode_pembayaran
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          prediction = data.prediction;
+        }
+      } else {
+        console.error('Prediction API returned status:', response.status);
+      }
     } catch (predictionError) {
       console.error('Prediction Error:', predictionError);
     }
