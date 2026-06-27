@@ -1,0 +1,14 @@
+27/06/26 19:40:18 git clone https://github.com/steffiwdjy/DataCapture6.git visitor-api.srusun.id/
+27/06/26 19:40:32 cd visitor-api.srusun.id/
+27/06/26 19:40:42 pip3
+27/06/26 19:41:18 git checkout steffi
+27/06/26 19:41:22 cd model-api/
+27/06/26 19:42:57 git pull
+27/06/26 19:43:02 pip3 install -r requirements.txt
+27/06/26 19:44:08 python3 app.py
+27/06/26 19:45:28 pm2 start app.py
+27/06/26 19:45:32 pm2 list
+27/06/26 19:45:36 pm2 save
+
+ssh command : ssh -p 1996 srusun-visitor-api@visitor-api.srusun.id
+ssh password: SRusunVisitorApi!2026Ok
