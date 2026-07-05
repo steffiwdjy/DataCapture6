@@ -4,6 +4,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
+const http = require('http');
 const bodyParser = require('body-parser');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -472,17 +473,48 @@ app.get('/api/rentals/duplicates', checkAdmin, async (req, res) => {
     const totalItems = countRows[0].totalItems;
     const totalPages = Math.ceil(totalItems / limit);
 
-    // --- Query 2: Mengambil Data ---
+    // --- Query 2: Mengambil Data (include unit, user emails, editor email, logs) ---
+    const logSubQuery = `(SELECT GROUP_CONCAT(
+            JSON_OBJECT(
+                'action', l.action, 'field_changed', l.field_changed, 'old_value', l.old_value,
+                'new_value', l.new_value, 'email', lp.email, 'timestamp', l.timestamp
+            ) SEPARATOR '|||'
+        ) FROM rental_logs l LEFT JOIN Pengguna lp ON l.pengguna_id = lp.pengguna_id WHERE l.rental_id = r1.id) as logs_json`;
+
     const dataQuery = `
-            SELECT r1.* FROM rentals r1
+            SELECT r1.*, u.tower, u.lantai, u.unit, p.email AS user_email, e.email AS diedit_oleh, r1.user_pengguna_id as user_pengguna_id, ${logSubQuery}
+            FROM rentals r1
+            LEFT JOIN units u ON r1.unit_number = u.unit_number
+            LEFT JOIN Pengguna p ON r1.user_pengguna_id = p.pengguna_id
+            LEFT JOIN Pengguna e ON r1.editor_pengguna_id = e.pengguna_id
             INNER JOIN ${innerQuery} ON r1.nik = r2.nik
             ORDER BY r1.nik, r1.created_at DESC
             LIMIT ? OFFSET ?
         `;
     const [rows] = await pool.query(dataQuery, [limit, offset]);
 
+    rows.forEach(r => {
+      // safe parse komentar
+      try {
+        r.komentar = JSON.parse(r.komentar || '[]');
+      } catch (e) {
+        console.warn('Invalid komentar JSON for rental id', r.id, 'value:', r.komentar);
+        r.komentar = r.komentar ? [r.komentar] : [];
+      }
 
-    rows.forEach(r => r.komentar = JSON.parse(r.komentar || '[]'));
+      // parse logs_json into logs array
+      if (r.logs_json) {
+        r.logs = r.logs_json.split('|||').map(logStr => {
+          try { return JSON.parse(logStr); } catch (e) { return { action: 'invalid_log', error: 'Invalid JSON' }; }
+        }).sort((a, b) => {
+          if (!a.timestamp || !b.timestamp) return 0;
+          return new Date(b.timestamp) - new Date(a.timestamp);
+        });
+      } else {
+        r.logs = [];
+      }
+      delete r.logs_json;
+    });
 
     // Kirim Respon Terstruktur Baru 
     res.json({
@@ -1278,7 +1310,37 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Server Start
-app.listen(port, () => {
-  console.log(`✅ Server berjalan di http://localhost:${port}`);
-});
+// Server Start with EADDRINUSE handling (tries subsequent ports)
+function startServerWithFallback(startPort, maxRetries = 10) {
+  let attempt = 0;
+
+  const tryListen = (p) => {
+    const srv = http.createServer(app);
+    srv.on('error', (err) => {
+      if (err && err.code === 'EADDRINUSE') {
+        console.warn(`Port ${p} sudah digunakan.`);
+        attempt += 1;
+        if (attempt <= maxRetries) {
+          const nextPort = p + 1;
+          console.log(`Mencoba port ${nextPort}...`);
+          // small delay before retrying
+          setTimeout(() => tryListen(nextPort), 200);
+        } else {
+          console.error('Gagal menemukan port kosong setelah beberapa percobaan. Tutup proses lain atau setel env PORT.');
+          process.exit(1);
+        }
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+
+    srv.listen(p, () => {
+      console.log(`✅ Server berjalan di http://localhost:${p}`);
+    });
+  };
+
+  tryListen(startPort);
+}
+
+startServerWithFallback(port, 10);

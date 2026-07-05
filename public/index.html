@@ -1288,16 +1288,9 @@
 
     async function checkDuplicates() {
       showAlert('Mencari data duplikat...', 'info');
-      const response = await fetch('/api/rentals/duplicates', { headers: getAuthHeaders() });
-      const result = await response.json();
       await loadRentalsData('duplicates', true);
-      if (result.success) {
-        if (result.data.length > 0) {
-          showAlert(`Ditemukan ${result.data.length} data dengan NIK ganda. Menampilkan hasil.`, 'info');
-          loadRentalsData(false, result.data);
-        } else {
-          showAlert('Tidak ditemukan data duplikat.', 'success');
-        }
+      if (!rentalsData || rentalsData.length === 0) {
+        showAlert('Tidak ditemukan data duplikat.', 'success');
       }
     }
 
